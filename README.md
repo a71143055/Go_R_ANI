@@ -54,6 +54,7 @@ Rust 엔진 (engine/, cdylib)
 
 ```bash
 ./run.sh             # 빌드 → 서버 실행 → 준비되면 화면 열기 (종료: Ctrl+C)
+./run.sh --public    # 인터넷에도 열기 (Cloudflare 무료 터널, https 주소)
 ./run.sh --browser   # VS Code 터미널에서도 시스템 브라우저로 열기
 ./run.sh --no-open   # 서버만 실행
 ```
@@ -63,6 +64,27 @@ Rust 엔진 (engine/, cdylib)
 - 서버가 이미 떠 있으면 새로 띄우지 않고 주소만 엽니다.
 - `dotnet build`만 해도 C# 빌드 전에 Rust 엔진이 자동으로 빌드되어 출력 폴더로 복사됩니다.
 - 음성 인식은 크롬·엣지에서 가장 잘 됩니다. VS Code 통합 브라우저에서는 음성 인식이 안 될 수 있으니, 그럴 때는 좌표 입력이나 키보드로 두면 됩니다.
+
+## 인터넷에 열기 (무료, 이 컴퓨터에서)
+
+```bash
+./run.sh --public
+```
+
+서버와 함께 **Cloudflare 무료 터널**이 켜지고 `https://○○○.trycloudflare.com` 같은 HTTPS 주소가 나옵니다. 이 주소로 누구나 접속할 수 있습니다.
+- Cloudflare 계정은 필요 없습니다. 이 컴퓨터가 켜져 있고 `run.sh --public`이 실행 중인 동안만 접속됩니다.
+- **다시 실행할 때마다 주소가 바뀝니다.** 고정 주소가 필요하면 아래 "고정 주소"를 보세요.
+- HTTPS라서 다른 기기의 크롬·엣지에서도 마이크(음성 입력)를 쓸 수 있습니다.
+- `cloudflared` 설치(리눅스): Cloudflare 공식 릴리스에서 `cloudflared-linux-amd64`를 받아 `~/.local/bin/cloudflared`로 둡니다. 다른 OS는 https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/ 참고.
+
+**인터넷에 열 때의 보호 장치**
+- "앱 종료"는 서버가 있는 컴퓨터에서 직접 연 화면에서만 됩니다. 터널로 들어온 화면에서는 버튼이 숨겨지고, 요청도 거부됩니다.
+- 로그인·회원가입은 접속지(IP)마다 1분에 10번까지만 받습니다.
+- AI 계산은 동시에 2판까지만 돌리고, 나머지는 차례를 기다립니다.
+- 터널 뒤에서도 로그인 쿠키에 Secure가 붙습니다.
+
+**고정 주소 (무료)**
+완전히 내 이름인 주소(예: `gorani.co.kr`)는 구매해야 합니다. 무료로 고정 주소를 쓰려면 **eu.org 무료 도메인**(예: `gorani.eu.org`, 승인까지 며칠~몇 주)을 신청하고, Cloudflare 무료 계정에 연결한 뒤 이름 있는 터널(named tunnel)로 바꾸면 됩니다.
 
 ## 소리와 키보드로 두기 (접근성)
 

@@ -29,6 +29,16 @@ public static class Games
     private static int QuickMs(string? level) => level switch { "easy" => 200, "hard" => 3000, _ => 800 };
 
     private static IHttpContextAccessor _http = null!;
+
+    /// <summary>AI·풀이기처럼 무거운 계산은 동시에 2개까지만 (인터넷에 열었을 때 컴퓨터 마비 방지)</summary>
+    private static readonly SemaphoreSlim AiSlots = new(2, 2);
+
+    private static async Task<JsonObject> Heavy(Func<JsonObject> work, CancellationToken ct)
+    {
+        await AiSlots.WaitAsync(ct);
+        try { return await Task.Run(work, ct); }
+        finally { AiSlots.Release(); }
+    }
     private static RecordStore _records = null!;
 
     /// <summary>로그인한 계정 ID</summary>
@@ -76,7 +86,7 @@ public static class Games
             // 그만 풀기: 처음 국면의 정답을 알려 준다
             var pid = s.Meta["problem"]!["id"]!.GetValue<string>();
             var start = Engine.Call("tsumego_new", new JsonObject { ["id"] = pid })["state"]!.DeepClone();
-            var hint = await Task.Run(() => Engine.Call("tsumego_hint", new JsonObject { ["id"] = pid, ["state"] = start }), ct);
+            var hint = await Heavy(() => Engine.Call("tsumego_hint", new JsonObject { ["id"] = pid, ["state"] = start }), ct);
             var answers = string.Join(", ", hint["moves"]!.AsArray().Select(m => m!.GetValue<string>()));
             s.Over = true;
             s.Result = "그만 풀기";
@@ -125,7 +135,7 @@ public static class Games
             if (s.Over) return Conflict("이미 끝난 대국입니다");
             if (s.ToPlay != s.AiColor) return Conflict("사람 차례입니다");
             var state = s.State.DeepClone();
-            var gen = await Task.Run(() => Engine.Call("go_genmove", new JsonObject { ["state"] = state, ["ms"] = GoMs(req.Level), ["level"] = Level(req.Level) }), ct);
+            var gen = await Heavy(() => Engine.Call("go_genmove", new JsonObject { ["state"] = state, ["ms"] = GoMs(req.Level), ["level"] = Level(req.Level) }), ct);
             var captured = ApplyGoMove(s, gen["move"]!.GetValue<string>());
             if (s.State["passes"]!.GetValue<int>() >= 2) s.Over = true;
             var comment = gen["comment"]!.GetValue<string>();
@@ -182,7 +192,7 @@ public static class Games
     private static async Task<string> ScoreGo(Session s, CancellationToken ct)
     {
         var state = s.State.DeepClone();
-        var dead = await Task.Run(() => Engine.Call("go_dead", new JsonObject { ["state"] = state, ["ms"] = 1500 }), ct);
+        var dead = await Heavy(() => Engine.Call("go_dead", new JsonObject { ["state"] = state, ["ms"] = 1500 }), ct);
         var deadList = dead["dead"]!.AsArray();
         var score = Engine.Call("go_score", new JsonObject { ["state"] = s.State.DeepClone(), ["dead"] = deadList.DeepClone() });
         score.Remove("ok");
@@ -258,7 +268,7 @@ public static class Games
             if (s.Over) return Conflict("이미 끝난 게임입니다");
             if (s.ToPlay != s.AiColor) return Conflict("사람 차례입니다");
             var state = s.State.DeepClone();
-            var gen = await Task.Run(() => Engine.Call("atari_genmove", new JsonObject { ["state"] = state, ["ms"] = QuickMs(req.Level), ["level"] = Level(req.Level) }), ct);
+            var gen = await Heavy(() => Engine.Call("atari_genmove", new JsonObject { ["state"] = state, ["ms"] = QuickMs(req.Level), ["level"] = Level(req.Level) }), ct);
             var captured = ApplyGoMove(s, gen["move"]!.GetValue<string>());
             CheckAtariEnd(s, s.AiColor, captured);
             var extra = GoExtra(s, null);
@@ -320,7 +330,7 @@ public static class Games
             if (s.Over) return Conflict("이미 끝난 게임입니다");
             if (s.ToPlay != s.AiColor) return Conflict("사람 차례입니다");
             var state = s.State.DeepClone();
-            var gen = await Task.Run(() => Engine.Call("line_genmove", new JsonObject { ["state"] = state, ["ms"] = QuickMs(req.Level), ["level"] = Level(req.Level) }), ct);
+            var gen = await Heavy(() => Engine.Call("line_genmove", new JsonObject { ["state"] = state, ["ms"] = QuickMs(req.Level), ["level"] = Level(req.Level) }), ct);
             var captured = new JsonArray();
             var moves = gen["moves"]!.AsArray().Select(m => m!.GetValue<string>()).ToList();
             foreach (var mv in moves)
@@ -394,7 +404,7 @@ public static class Games
             var pid = s.Meta["problem"]!["id"]!.GetValue<string>();
             var captured = HumanGoMove(s, req.Move);
             var state = s.State.DeepClone();
-            var reply = await Task.Run(() => Engine.Call("tsumego_reply", new JsonObject { ["id"] = pid, ["state"] = state }), ct);
+            var reply = await Heavy(() => Engine.Call("tsumego_reply", new JsonObject { ["id"] = pid, ["state"] = state }), ct);
             var status = reply["status"]!.GetValue<string>();
             JsonArray? aiCaptured = null;
             if (reply["move"] is JsonValue mv)
@@ -423,7 +433,7 @@ public static class Games
             if (s.Over) return Conflict("이 문제는 끝났습니다");
             var pid = s.Meta["problem"]!["id"]!.GetValue<string>();
             var state = s.State.DeepClone();
-            var res = await Task.Run(() => Engine.Call("tsumego_hint", new JsonObject { ["id"] = pid, ["state"] = state }), ct);
+            var res = await Heavy(() => Engine.Call("tsumego_hint", new JsonObject { ["id"] = pid, ["state"] = state }), ct);
             return Results.Json(new { moves = res["moves"]!.DeepClone() });
         }));
 

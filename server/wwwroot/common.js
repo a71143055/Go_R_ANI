@@ -147,7 +147,10 @@ Common.listen = () => {
     if (!parsed) { Common.announce(`"${alts[0]}"를 알아듣지 못했습니다. 예: 디 사, 패스, 무르기`); return; }
     if (parsed.cmd === "repeat") { Common.speak(Common.lastSpoken); return; }
     if (parsed.cmd === "quiet") { Common.stopSpeaking(); return; }
-    if (parsed.cmd === "quit") { Common.quit(true); return; }
+    if (parsed.cmd === "quit") {
+      if ($("quit").hidden) { Common.announce("앱 종료는 서버가 있는 컴퓨터에서만 할 수 있습니다. 로그아웃하거나 창을 닫으세요."); return; }
+      Common.quit(true); return;
+    }
     if (parsed.cmd === "records") { showTab("records"); return; }
     if (parsed.cmd === "logout") { Common.logout(); return; }
     if (Common.onTabVoice && Common.onTabVoice(parsed)) return;
@@ -240,6 +243,8 @@ function setupLogin() {
 
   // Google 로그인: 서버에 클라이언트 ID가 설정된 경우에만 버튼을 보여 준다
   Common.api("/api/auth/config").then(cfg => {
+    // 인터넷(터널)으로 접속한 화면에서는 "앱 종료"를 숨긴다 — 서버를 끌 수 있는 건 이 컴퓨터뿐
+    if (!cfg.canShutdown) $("quit").hidden = true;
     if (!cfg.googleClientId) return;
     const s = document.createElement("script");
     s.src = "https://accounts.google.com/gsi/client";
@@ -804,7 +809,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (key === "m") { e.preventDefault(); Common.listen(); }
     else if (key === "r") { e.preventDefault(); Common.speak(Common.lastSpoken); }
     else if (key === "t" && Common.active) { e.preventDefault(); Common.active.clock.sayTime(); }
-    else if (key === "q") { e.preventDefault(); Common.quit(false); }
+    else if (key === "q" && !$("quit").hidden) { e.preventDefault(); Common.quit(false); }
   });
 
   setupLogin();
