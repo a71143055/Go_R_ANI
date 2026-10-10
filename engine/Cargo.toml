@@ -1,0 +1,16 @@
+[package]
+name = "baduk_engine"
+version = "0.1.0"
+edition = "2021"
+description = "바둑·오목·알까기 규칙/물리 엔진 (C# 서버에서 P/Invoke로 호출)"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+opt-level = 3
+panic = "unwind"

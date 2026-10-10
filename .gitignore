@@ -1,0 +1,10 @@
+# Rust
+engine/target/
+
+# .NET
+server/bin/
+server/obj/
+
+# 비밀 정보 (API 키)
+.env
+server/.env

@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Claude 바둑 게임방</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>⚫⚪ Claude 바둑 게임방</h1>
+    <nav class="tabs">
+      <button data-tab="home" class="active">홈</button>
+      <button data-tab="go">바둑</button>
+      <button data-tab="omok">오목</button>
+      <button data-tab="alkkagi">알까기</button>
+    </nav>
+    <div class="ai-settings">
+      <label>AI 생각 깊이
+        <select id="effort">
+          <option value="low">빠름 (low)</option>
+          <option value="medium" selected>보통 (medium)</option>
+          <option value="high">깊게 (high)</option>
+          <option value="xhigh">아주 깊게 (xhigh)</option>
+        </select>
+      </label>
+      <span id="status" class="status">상태 확인 중…</span>
+    </div>
+  </header>
+
+  <main>
+    <!-- 홈 -->
+    <section id="tab-home" class="tab active">
+      <div class="home">
+        <p class="lead">상대 AI는 <b>Claude</b>입니다. 서버가 Anthropic API로 Claude를 직접 호출하며, 매 수마다 Claude가 둔 수의 의도를 설명해 줍니다.</p>
+        <div class="cards">
+          <button class="card" data-goto="go"><span class="big">바둑</span><span>9·13·19줄 대국. 패·자충 규칙, 중국식 계가, Claude 사석 판정</span></button>
+          <button class="card" data-goto="omok"><span class="big">오목</span><span>15줄 판에서 5목 먼저 만들기 (자유 룰)</span></button>
+          <button class="card" data-goto="alkkagi"><span class="big">알까기</span><span>돌을 튕겨 상대 돌을 판 밖으로! Claude가 샷을 고릅니다</span></button>
+        </div>
+        <p class="hint">Claude 응답에는 수 초~수십 초가 걸릴 수 있습니다. 상단의 "AI 생각 깊이"를 낮추면 빨라집니다.</p>
+      </div>
+    </section>
+
+    <!-- 바둑 -->
+    <section id="tab-go" class="tab">
+      <div class="game">
+        <div class="board-wrap"><canvas id="go-canvas" width="720" height="720"></canvas></div>
+        <aside class="panel">
+          <div class="controls">
+            <label>판 <select id="go-size"><option>9</option><option>13</option><option>19</option></select></label>
+            <label>내 돌 <select id="go-color"><option value="B">흑 (선)</option><option value="W">백 (후)</option></select></label>
+            <label>덤 <input id="go-komi" type="number" step="0.5" value="6.5"></label>
+            <button id="go-new" class="primary">새 대국</button>
+          </div>
+          <div class="controls">
+            <button id="go-pass">패스</button>
+            <button id="go-undo">무르기</button>
+            <button id="go-resign">기권</button>
+          </div>
+          <div id="go-info" class="info"></div>
+          <h3>Claude의 한마디</h3>
+          <ol id="go-log" class="log"></ol>
+        </aside>
+      </div>
+    </section>
+
+    <!-- 오목 -->
+    <section id="tab-omok" class="tab">
+      <div class="game">
+        <div class="board-wrap"><canvas id="omok-canvas" width="720" height="720"></canvas></div>
+        <aside class="panel">
+          <div class="controls">
+            <label>내 돌 <select id="omok-color"><option value="B">흑 (선)</option><option value="W">백 (후)</option></select></label>
+            <button id="omok-new" class="primary">새 게임</button>
+            <button id="omok-undo">무르기</button>
+          </div>
+          <div id="omok-info" class="info"></div>
+          <h3>Claude의 한마디</h3>
+          <ol id="omok-log" class="log"></ol>
+        </aside>
+      </div>
+    </section>
+
+    <!-- 알까기 -->
+    <section id="tab-alkkagi" class="tab">
+      <div class="game">
+        <div class="board-wrap"><canvas id="alk-canvas" width="720" height="720"></canvas></div>
+        <aside class="panel">
+          <div class="controls">
+            <label>돌 개수 <select id="alk-count"><option>3</option><option selected>5</option><option>7</option></select></label>
+            <button id="alk-new" class="primary">새 게임</button>
+          </div>
+          <p class="hint">내 돌(흑, 아래쪽)을 누른 채 <b>반대 방향으로 당겼다 놓으면</b> 발사됩니다. 많이 당길수록 세게 나갑니다.</p>
+          <div id="alk-info" class="info"></div>
+          <h3>Claude의 한마디</h3>
+          <ol id="alk-log" class="log"></ol>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <script src="common.js"></script>
+  <script src="go.js"></script>
+  <script src="omok.js"></script>
+  <script src="alkkagi.js"></script>
+</body>
+</html>
