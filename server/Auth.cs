@@ -13,13 +13,16 @@ public record GoogleLoginRequest(string Credential);
 public static class AuthApi
 {
     /// <summary>
-    /// 이 컴퓨터에서 직접 연 요청인가. Cloudflare 터널은 localhost로 접속하므로,
+    /// 이 컴퓨터에서 직접 연 요청인가. 터널·프록시(Cloudflare, Caddy, Tailscale)는 localhost로 접속하므로,
     /// 프록시가 붙이는 헤더가 있으면 외부 요청으로 본다.
     /// </summary>
     public static bool IsLocalRequest(HttpContext ctx)
     {
         var h = ctx.Request.Headers;
-        if (h.ContainsKey("CF-Connecting-IP") || h.ContainsKey("CF-Ray") || h.ContainsKey("X-Forwarded-For") || h.ContainsKey("X-Forwarded-Host"))
+        // Cloudflare 터널, Caddy, Tailscale Funnel이 붙이는 헤더
+        string[] proxyHeaders = ["CF-Connecting-IP", "CF-Ray", "X-Forwarded-For", "X-Forwarded-Host", "Forwarded",
+                                 "Tailscale-Funnel-Request", "Tailscale-User-Login"];
+        if (proxyHeaders.Any(h.ContainsKey))
             return false;
         var ip = ctx.Connection.RemoteIpAddress;
         return ip != null && System.Net.IPAddress.IsLoopback(ip);

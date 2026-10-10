@@ -66,6 +66,23 @@ Rust 엔진 (engine/, cdylib)
 - `dotnet build`만 해도 C# 빌드 전에 Rust 엔진이 자동으로 빌드되어 출력 폴더로 복사됩니다.
 - 음성 인식은 크롬·엣지에서 가장 잘 됩니다. VS Code 통합 브라우저에서는 음성 인식이 안 될 수 있으니, 그럴 때는 좌표 입력이나 키보드로 두면 됩니다.
 
+## 자동 실행 + 고정 주소 (권장)
+
+컴퓨터를 켜면 게임 서버와 고정 인터넷 주소가 **저절로** 켜집니다. 명령을 입력할 필요가 없습니다.
+
+- 고정 주소: **Tailscale Funnel** (무료) — `https://이름.tailXXXX.ts.net`. 카페·집 어디서든 되고 공유기 설정이 필요 없습니다.
+- 설치 (한 번):
+  ```bash
+  ./deploy/install-autostart.sh      # 서버 + Tailscale 사용자 서비스 등록 (관리자 권한 불필요)
+  TS="$HOME/.local/bin/tailscale --socket=$XDG_RUNTIME_DIR/goarcade-tailscaled.sock"
+  $TS up --hostname=gorani           # 나오는 주소로 로그인 (GitHub 등)
+  $TS funnel --bg 5000               # 처음엔 Funnel 허용 페이지가 나옴 → 허용
+  ```
+  Tailscale은 https://pkgs.tailscale.com/stable/ 의 정적 배포판(`tailscale`, `tailscaled`)을 `~/.local/bin`에 둡니다.
+- 상태 확인: `systemctl --user status goarcade` · `$TS funnel status`
+- 해제: `./deploy/install-autostart.sh --remove`
+- 서버는 켤 때마다 최신 코드로 다시 빌드합니다. 코드를 고친 뒤 바로 반영하려면 `systemctl --user restart goarcade`.
+
 ## 인터넷에 열기 (무료, 이 컴퓨터에서)
 
 ```bash
