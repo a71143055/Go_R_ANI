@@ -1,0 +1,18 @@
+# 바둑 게임방 서버 (systemd 사용자 서비스). deploy/install-autostart.sh 가 경로를 채워 설치한다.
+[Unit]
+Description=바둑 게임방 서버 (localhost:5000)
+After=network-online.target
+
+[Service]
+WorkingDirectory=@REPO@/server
+Environment=PATH=@DOTNET_DIR@:@CARGO_DIR@:/usr/local/bin:/usr/bin:/bin
+Environment=DOTNET_ROOT=@DOTNET_DIR@
+# 켤 때마다 최신 코드로 빌드 (Rust 엔진 포함)
+ExecStartPre=@DOTNET_DIR@/dotnet build -nologo -v q
+ExecStart=@DOTNET_DIR@/dotnet bin/Debug/net10.0/GoArcade.dll --urls http://localhost:5000
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=300
+
+[Install]
+WantedBy=default.target

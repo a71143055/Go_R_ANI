@@ -1,0 +1,13 @@
+# 고정 인터넷 주소 (Tailscale Funnel). 관리자 권한 없이 사용자 모드로 돈다.
+# Funnel 설정(어느 포트를 열지)은 tailscaled 상태 파일에 저장되어, 다시 켜도 그대로 유지된다.
+[Unit]
+Description=바둑 게임방 고정 주소 (Tailscale Funnel)
+After=network-online.target
+
+[Service]
+ExecStart=@BIN@/tailscaled --tun=userspace-networking --statedir=%h/.local/share/goarcade-tailscale --socket=%t/goarcade-tailscaled.sock
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
