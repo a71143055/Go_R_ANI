@@ -40,7 +40,15 @@ pub fn ascii(board: &[u8], size: usize) -> String {
     out.join("\n")
 }
 
-/// 결정적 의사난수 (대체 수의 동점 처리용)
+/// AI 난이도: 1 하, 2 중, 3 상
+pub type Level = u8;
+
+/// 매번 다른 시드 (난이도 '하'의 무작위성용)
+pub fn time_seed() -> u64 {
+    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos() as u64).unwrap_or(1)
+}
+
+/// 결정적 의사난수 (동점 처리용)
 pub fn hash_noise(a: usize, b: usize) -> f64 {
     let mut h = (a as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15) ^ (b as u64).wrapping_mul(0xC2B2_AE3D_27D4_EB4F);
     h ^= h >> 31;

@@ -309,7 +309,9 @@ pub struct LineMove {
 }
 
 /// 남은 차례 몫의 돌(1~2개)을 고른다
-pub fn genmove(st: &LineState, ms: u64) -> LineMove {
+/// level 1(하): 바로 이기는 수만 보고 나머지는 상위 후보 중 무작위
+/// level 2(중): 4수 앞까지, level 3(상): 시간 안에서 최대한 깊게
+pub fn genmove(st: &LineState, ms: u64, level: coord::Level) -> LineMove {
     let n = st.size;
     let center = (n / 2) * n + n / 2;
     if st.board.iter().all(|&c| c == 0) {
@@ -324,7 +326,7 @@ pub fn genmove(st: &LineState, ms: u64) -> LineMove {
     for k in 0..remaining {
         // 차례 시간을 남은 돌 수로 나눠 쓴다
         let budget = ms / (remaining - k) as u64;
-        let (p, d, nodes, comment) = best_single(&work, budget.max(30));
+        let (p, d, nodes, comment) = best_single(&work, budget.max(30), level);
         total_nodes += nodes;
         depth_done = depth_done.max(d);
         let mv = coord::format(p, n);
@@ -339,7 +341,7 @@ pub fn genmove(st: &LineState, ms: u64) -> LineMove {
     LineMove { moves, depth: depth_done, nodes: total_nodes, comment: comments.join(" ") }
 }
 
-fn best_single(st: &LineState, ms: u64) -> (usize, u32, u64, String) {
+fn best_single(st: &LineState, ms: u64, level: coord::Level) -> (usize, u32, u64, String) {
     let mut s = Search::new(st, ms.clamp(30, 30_000));
     let side = s.side;
     let root = s.candidates(16);
@@ -347,10 +349,24 @@ fn best_single(st: &LineState, ms: u64) -> (usize, u32, u64, String) {
         let p = st.board.iter().position(|&c| c == 0).unwrap_or(0);
         return (p, 0, 0, "둘 곳을 찾습니다.".into());
     }
+    if level <= 1 {
+        // 하: 바로 이기는 수는 두고, 아니면 상위 3개 후보 중 무작위 (수읽기 없음)
+        for &p in &root {
+            let u = s.make(p);
+            let won = s.won;
+            s.unmake(u);
+            if won {
+                return (p, 1, 0, describe(&s, p, side, 0));
+            }
+        }
+        let mut rng = crate::go_ai::Rng::new(coord::time_seed());
+        let p = root[rng.below(root.len().min(3))];
+        return (p, 0, 0, describe(&s, p, side, 0));
+    }
     let mut best = root[0];
     let mut best_score = 0;
     let mut done = 0;
-    let max_depth = if st.variant == Variant::Connect6 { 9 } else { 12 };
+    let max_depth = if level == 2 { 4 } else if st.variant == Variant::Connect6 { 9 } else { 12 };
     let mut depth = 2;
     while depth <= max_depth {
         let mut alpha = -WIN * 2;
@@ -391,7 +407,11 @@ fn best_single(st: &LineState, ms: u64) -> (usize, u32, u64, String) {
         depth += if st.variant == Variant::Connect6 { 1 } else { 2 };
     }
 
-    // 해설
+    (best, done, s.nodes, describe(&s, best, side, best_score))
+}
+
+/// 수의 의도를 한국어로 설명한다
+fn describe(s: &Search, best: usize, side: u8, best_score: i64) -> String {
     let len = s.len as u8;
     let own = s.max_line(best, side) + 1;
     let opp = s.max_line(best, 3 - side);
@@ -413,7 +433,7 @@ fn best_single(st: &LineState, ms: u64) -> (usize, u32, u64, String) {
     } else if best_score <= -WIN {
         comment.push_str(" 형세가 매우 불리합니다.");
     }
-    (best, done, s.nodes, comment)
+    comment
 }
 
 #[cfg(test)]
@@ -431,7 +451,7 @@ mod tests {
     #[test]
     fn omok_takes_win() {
         let s = st(Variant::Omok, &["H8", "A1", "J8", "A3", "K8", "A5", "L8", "A7"]);
-        let m = genmove(&s, 300);
+        let m = genmove(&s, 300, 3);
         assert!(m.moves == ["G8"] || m.moves == ["M8"], "{m:?}");
         assert!(m.comment.contains("5목"));
     }
@@ -439,14 +459,23 @@ mod tests {
     #[test]
     fn omok_blocks_four() {
         let s = st(Variant::Omok, &["H8", "A1", "J8", "A3", "K8", "A15", "L8"]);
-        let m = genmove(&s, 300);
+        let m = genmove(&s, 300, 3);
         assert!(m.moves == ["G8"] || m.moves == ["M8"], "{m:?}");
+    }
+
+    #[test]
+    fn easy_level_still_takes_win() {
+        let s = st(Variant::Omok, &["H8", "A1", "J8", "A3", "K8", "A5", "L8", "A7"]);
+        for _ in 0..5 {
+            let m = genmove(&s, 100, 1);
+            assert!(m.moves == ["G8"] || m.moves == ["M8"], "{m:?}");
+        }
     }
 
     #[test]
     fn omok_blocks_open_three() {
         let s = st(Variant::Omok, &["H8", "A1", "J8", "A15", "K8"]);
-        let m = genmove(&s, 500);
+        let m = genmove(&s, 500, 3);
         assert!(["G8", "L8", "F8", "M8"].contains(&m.moves[0].as_str()), "{m:?}");
     }
 
@@ -455,7 +484,7 @@ mod tests {
         // 흑이 이미 8개 따냄, 다음 따내기로 승리
         let mut s = st(Variant::Pente, &["K10", "L10", "A1", "M10"]);
         s.captures = [8, 0];
-        let m = genmove(&s, 300);
+        let m = genmove(&s, 300, 3);
         assert_eq!(m.moves, ["N10"], "{m:?}");
     }
 
@@ -467,7 +496,7 @@ mod tests {
         let mut s = s;
         s.play_coord("T1").unwrap();
         s.play_coord("T3").unwrap(); // 백이 엉뚱한 곳 → 흑 차례
-        let m = genmove(&s, 500);
+        let m = genmove(&s, 500, 3);
         assert_eq!(m.moves.len(), 2, "{m:?}");
         let mut after = s.clone();
         for mv in &m.moves {
@@ -480,7 +509,7 @@ mod tests {
     fn connect6_blocks_four() {
         // 백 차례, 흑 4개 연속 (K10~N10) — 막지 않으면 흑이 다음 차례 6목
         let s = st(Variant::Connect6, &["K10", "A1", "A3", "L10", "M10", "A5", "A7", "N10", "O10"]);
-        let m = genmove(&s, 800);
+        let m = genmove(&s, 800, 3);
         let blocks = ["J10", "P10", "H10", "Q10"];
         assert!(m.moves.iter().any(|mv| blocks.contains(&mv.as_str())), "{m:?}");
     }

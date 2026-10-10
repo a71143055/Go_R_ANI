@@ -56,7 +56,8 @@ pub fn dispatch(req: &Value) -> Result<Value, String> {
         "go_genmove" => {
             let st: go::GoState = field(req, "state")?;
             let ms: u64 = opt_field(req, "ms", 3000)?;
-            Ok(serde_json::to_value(go_ai::genmove(&st, ms)).unwrap())
+            let level: u8 = opt_field(req, "level", 3)?;
+            Ok(serde_json::to_value(go_ai::genmove(&st, ms, level)).unwrap())
         }
         "go_dead" => {
             let st: go::GoState = field(req, "state")?;
@@ -76,7 +77,8 @@ pub fn dispatch(req: &Value) -> Result<Value, String> {
         "atari_genmove" => {
             let st: go::GoState = field(req, "state")?;
             let ms: u64 = opt_field(req, "ms", 1000)?;
-            Ok(serde_json::to_value(atari_ai::genmove(&st, ms)).unwrap())
+            let level: u8 = opt_field(req, "level", 3)?;
+            Ok(serde_json::to_value(atari_ai::genmove(&st, ms, level)).unwrap())
         }
         // ---------------- 사활 문제
         "tsumego_list" => {
@@ -118,7 +120,8 @@ pub fn dispatch(req: &Value) -> Result<Value, String> {
         "line_genmove" => {
             let st: linegame::LineState = field(req, "state")?;
             let ms: u64 = opt_field(req, "ms", 1000)?;
-            Ok(serde_json::to_value(linegame_ai::genmove(&st, ms)).unwrap())
+            let level: u8 = opt_field(req, "level", 3)?;
+            Ok(serde_json::to_value(linegame_ai::genmove(&st, ms, level)).unwrap())
         }
         "engine_info" => Ok(json!({ "threads": go_ai::thread_count() })),
         other => Err(format!("알 수 없는 명령: {other}")),

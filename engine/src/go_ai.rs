@@ -32,10 +32,10 @@ impl Rng {
         self.0 = x;
         x
     }
-    fn below(&mut self, n: usize) -> usize {
+    pub fn below(&mut self, n: usize) -> usize {
         (self.next() % n as u64) as usize
     }
-    fn chance(&mut self, p: f64) -> bool {
+    pub fn chance(&mut self, p: f64) -> bool {
         ((self.next() >> 11) as f64 / (1u64 << 53) as f64) < p
     }
 }
@@ -711,10 +711,16 @@ fn coord_of(b: &Board, p: usize) -> String {
     }
 }
 
-pub fn genmove(st: &GoState, ms: u64) -> GenMove {
+/// level 1(하): 한 스레드로 짧게 읽고 방문 수에 비례해 무작위로 고름
+/// level 2(중): 두 스레드, level 3(상): 모든 스레드로 가장 많이 읽은 수
+pub fn genmove(st: &GoState, ms: u64, level: coord::Level) -> GenMove {
     let root = Board::from_state(st);
     let deadline = Instant::now() + Duration::from_millis(ms.clamp(50, 60_000));
-    let nthreads = threads();
+    let (nthreads, max_iter) = match level {
+        1 => (1, 700u64),
+        2 => (threads().min(2), u64::MAX),
+        _ => (threads(), u64::MAX),
+    };
     let seed = st.history.len() as u64 * 7919 + st.board.iter().map(|&c| c as u64).sum::<u64>();
 
     let results: Vec<(Vec<(usize, f32, f32)>, u64, Option<Tree>)> = std::thread::scope(|scope| {
@@ -728,7 +734,7 @@ pub fn genmove(st: &GoState, ms: u64) -> GenMove {
                     loop {
                         tree.iterate(root, &mut rng);
                         it += 1;
-                        if it % 32 == 0 && Instant::now() >= deadline {
+                        if it >= max_iter || (it % 32 == 0 && Instant::now() >= deadline) {
                             break;
                         }
                     }
@@ -758,7 +764,23 @@ pub fn genmove(st: &GoState, ms: u64) -> GenMove {
             }
         }
     }
-    let best = agg.iter().copied().max_by(|a, b| a.1.total_cmp(&b.1)).unwrap_or((PASS, 0.0, 0.0));
+    let mut best = agg.iter().copied().max_by(|a, b| a.1.total_cmp(&b.1)).unwrap_or((PASS, 0.0, 0.0));
+    if level == 1 && best.0 != PASS {
+        // 하: 방문 수에 비례한 무작위 선택 (패스 제외) — 가끔 덜 좋은 수를 둔다
+        let pool: Vec<_> = agg.iter().copied().filter(|e| e.0 != PASS && e.1 >= 1.0).collect();
+        let total: f32 = pool.iter().map(|e| e.1).sum();
+        if total > 0.0 {
+            let mut rng = Rng::new(coord::time_seed());
+            let mut r = (rng.below(1_000_000) as f32 / 1_000_000.0) * total;
+            for e in &pool {
+                r -= e.1;
+                if r <= 0.0 {
+                    best = *e;
+                    break;
+                }
+            }
+        }
+    }
     let winrate = if best.1 > 0.0 { best.2 / best.1 } else { 0.5 };
     let pv: Vec<String> = tree0
         .map(|t| t.pv(best.0, 6).into_iter().map(|p| coord_of(&root, p)).collect())
@@ -926,7 +948,7 @@ mod tests {
     fn captures_stone_in_atari() {
         // 백 E5가 단수 (흑 D5 F5 E4), 흑이 E6에 두면 따낸다
         let st = state(&["D5", "E5", "F5", "A1", "E4", "A2"], 9);
-        let g = genmove(&st, 500);
+        let g = genmove(&st, 500, 3);
         assert_eq!(g.mv, "E6", "{g:?}");
         assert!(g.comment.contains("따냅니다"));
     }
@@ -935,7 +957,7 @@ mod tests {
     fn saves_own_stone_in_atari() {
         // 흑 E5가 백 D5 F5 E4에 둘러싸여 단수 → 흑 E6으로 달아나야 함
         let st = state(&["E5", "D5", "A9", "F5", "J9", "E4"], 9);
-        let g = genmove(&st, 800);
+        let g = genmove(&st, 800, 3);
         assert_eq!(g.mv, "E6", "{g:?}");
     }
 
@@ -945,7 +967,7 @@ mod tests {
         for size in [9, 13, 19] {
             let st = state(&[], size);
             let t = Instant::now();
-            let g = genmove(&st, 2000);
+            let g = genmove(&st, 2000, 3);
             println!("{size}x{size} 2s: {} playouts ({:.0}/s, {} threads) -> {} wr {:.2} pv {:?}",
                 g.playouts, g.playouts as f64 / t.elapsed().as_secs_f64(), thread_count(), g.mv, g.winrate, g.pv);
         }

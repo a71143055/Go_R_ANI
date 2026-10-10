@@ -182,7 +182,9 @@ pub struct AtariMove {
     pub comment: String,
 }
 
-pub fn genmove(st: &GoState, ms: u64) -> AtariMove {
+/// level 1(하): 따낼 수 있으면 따내고, 아니면 상위 4개 후보 중 무작위 (수읽기 없음)
+/// level 2(중): 3수 앞까지, level 3(상): 시간 안에서 최대한 깊게
+pub fn genmove(st: &GoState, ms: u64, level: crate::coord::Level) -> AtariMove {
     let root = candidates(st, 20);
     if root.is_empty() {
         return AtariMove { mv: "pass".into(), depth: 0, comment: "둘 곳이 없어 패스합니다.".into() };
@@ -190,10 +192,14 @@ pub fn genmove(st: &GoState, ms: u64) -> AtariMove {
     let mut best = root[0].0;
     let mut best_score = 0;
     let mut done = 0;
-    if !root[0].1 {
+    if level <= 1 && !root[0].1 {
+        let mut rng = crate::go_ai::Rng::new(coord::time_seed());
+        best = root[rng.below(root.len().min(4))].0;
+    } else if !root[0].1 {
+        let max_depth = if level == 2 { 3 } else { 14 };
         let mut s = Search { deadline: Instant::now() + Duration::from_millis(ms.clamp(50, 30_000)), nodes: 0, stop: false };
         let mut depth = 1;
-        while depth <= 14 {
+        while depth <= max_depth {
             let mut alpha = -WIN * 2;
             let mut iter_best = None;
             let mut order = root.clone();
@@ -269,7 +275,7 @@ mod tests {
     #[test]
     fn captures_when_possible() {
         let s = st(7, &["D4", "D5", "C5", "A1", "E5", "A2"]); // 백 D5 단수 (활로 D6)
-        let m = genmove(&s, 300);
+        let m = genmove(&s, 300, 3);
         assert_eq!(m.mv, "D6", "{m:?}");
     }
 
@@ -277,7 +283,7 @@ mod tests {
     fn escapes_atari() {
         // 백 D4가 흑 C4 E4 D3에 둘러싸여 단수 → 백은 D5로 달아나야 함
         let s = st(7, &["C4", "D4", "E4", "A1", "D3"]);
-        let m = genmove(&s, 500);
+        let m = genmove(&s, 500, 3);
         assert_eq!(m.mv, "D5", "{m:?}");
     }
 
