@@ -87,3 +87,16 @@ main { padding: 16px; max-width: 1200px; margin: 0 auto; }
 .coord-form input { width: 140px; }
 :focus-visible { outline: 3px solid #1565c0; outline-offset: 2px; }
 ul.hint { padding-left: 1.2em; }
+.settings { margin-left: auto; display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; font-size: .9rem; }
+.mic { font-weight: 700; }
+.mic.listening { background: #c62828; color: #fff; border-color: #c62828; animation: pulse 1s infinite; }
+@keyframes pulse { 50% { opacity: .6; } }
+.clock { font-size: 1.15rem; font-weight: 700; padding: 6px 10px; margin-bottom: 8px; border-radius: 8px; background: var(--bg); font-variant-numeric: tabular-nums; }
+.clock.urgent { color: #fff; background: #c62828; }
+.tray { margin-top: 8px; display: grid; gap: 4px; font-size: .88rem; }
+.tray-row { display: flex; align-items: center; gap: 8px; }
+.tray-label { min-width: 5.5em; color: var(--muted); }
+.tray-stones { display: flex; flex-wrap: wrap; gap: 2px; flex: 1; min-height: 14px; }
+.tray-stone { width: 12px; height: 12px; border-radius: 50%; border: 1px solid rgba(0,0,0,.4); }
+.tray-stone.b { background: #111; }
+.tray-stone.w { background: #f4f1ea; }

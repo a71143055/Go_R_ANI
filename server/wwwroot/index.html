@@ -13,9 +13,25 @@
     <nav class="tabs" aria-label="게임 선택">
       <button data-tab="home" class="active" aria-current="page">홈</button>
       <button data-tab="go">바둑</button>
+      <button data-tab="atari">따내기 바둑</button>
+      <button data-tab="tsumego">사활 문제</button>
       <button data-tab="omok">오목</button>
+      <button data-tab="pente">펜테</button>
+      <button data-tab="connect6">육목</button>
     </nav>
-    <div class="ai-settings">
+    <div class="settings">
+      <button id="mic" class="mic" aria-pressed="false" title="음성으로 두기 (Alt+M)">🎤 말하기</button>
+      <label><input id="voice-out" type="checkbox" checked> 음성 안내</label>
+      <label>속도 <select id="voice-rate"><option value="0.8">느리게</option><option value="1" selected>보통</option><option value="1.3">빠르게</option><option value="1.6">아주 빠르게</option></select></label>
+      <label>시간 제한
+        <select id="timer">
+          <option value="none">없음</option>
+          <option value="move:30">한 수 30초</option>
+          <option value="move:60">한 수 60초</option>
+          <option value="main:600:30:3">10분 + 초읽기 30초 3회</option>
+          <option value="main:1200:30:3">20분 + 초읽기 30초 3회</option>
+        </select>
+      </label>
       <label>AI 생각 시간
         <select id="think">
           <option value="fast">빠름</option>
@@ -32,98 +48,38 @@
   <div id="sr-announce" class="sr-only" aria-live="assertive" aria-atomic="true"></div>
 
   <main id="main">
-    <!-- 홈 -->
     <section id="tab-home" class="tab active" aria-labelledby="home-title">
       <div class="home">
         <h2 id="home-title" class="sr-only">홈</h2>
-        <p class="lead">상대는 이 앱에 내장된 <b>자체 AI</b>입니다. 인터넷 연결이나 API 키 없이 동작하며, 매 수마다 AI가 수의 의도를 설명해 줍니다.</p>
+        <p class="lead">바둑판에서 하는 게임 여섯 가지를 <b>내장된 자체 AI</b>와 즐길 수 있습니다. 인터넷 연결이나 API 키 없이 동작하며, 화면을 보지 않고도 소리와 키보드만으로 끝까지 둘 수 있습니다.</p>
         <div class="cards">
-          <button class="card" data-goto="go"><span class="big">바둑</span><span>9·13·19줄 대국. 패·자충 규칙, 중국식 계가, 자동 사석 판정. <b>맹기 바둑</b> 지원</span></button>
-          <button class="card" data-goto="omok"><span class="big">오목</span><span>15줄 판에서 5목 먼저 만들기 (자유 룰)</span></button>
+          <button class="card" data-goto="go"><span class="big">바둑</span><span>9·13·19줄. 계가와 사석 판정, <b>맹기 바둑</b> 지원</span></button>
+          <button class="card" data-goto="atari"><span class="big">따내기 바둑</span><span>돌을 먼저 하나라도 따내면 승리. 바둑 입문용</span></button>
+          <button class="card" data-goto="tsumego"><span class="big">사활 문제</span><span>묘수풀이. 단수·양단수·환격·직삼·곡삼</span></button>
+          <button class="card" data-goto="omok"><span class="big">오목</span><span>15줄, 5목 먼저 만들기</span></button>
+          <button class="card" data-goto="pente"><span class="big">펜테</span><span>오목 + 양쪽 막아 두 점 따내기, 10개 따내도 승리</span></button>
+          <button class="card" data-goto="connect6"><span class="big">육목</span><span>19줄, 한 번에 2개씩 놓아 6목 먼저 만들기</span></button>
         </div>
-        <h3>화면을 보지 않고 두는 방법</h3>
+        <h3>소리와 키보드로 두는 방법</h3>
         <ul class="hint">
-          <li>좌표 입력칸에 <b>D4</b>처럼 입력하고 Enter를 누르면 둡니다. 바둑에서는 <b>pass</b>로 패스합니다.</li>
-          <li>판에 초점을 맞추고 <b>방향키</b>로 이동, <b>Enter</b>나 <b>Space</b>로 둡니다. 이동할 때마다 좌표와 그 자리의 상태를 읽어 줍니다.</li>
-          <li>내 수, AI 수, 해설, 결과는 스크린리더가 자동으로 읽어 줍니다. "판 읽기" 버튼으로 현재 판 전체를 들을 수 있습니다.</li>
+          <li><b>음성으로 두기</b>: 🎤 말하기 버튼이나 <b>Alt+M</b>을 누르고 "디 사"(D4), "패스", "무르기", "판 읽기", "남은 시간", "힌트", "새 게임", "다시 말해"처럼 말합니다. 크롬이나 엣지에서 되고, 인터넷 연결이 필요합니다.</li>
+          <li><b>좌표 입력</b>: 좌표칸에 <b>D4</b>처럼 입력하고 Enter. 명령어("패스", "무르기")도 입력할 수 있습니다.</li>
+          <li><b>키보드</b>: 판에 초점을 맞추고 방향키로 이동, Enter나 Space로 둡니다. 이동할 때마다 좌표와 그 자리 상태를 읽어 줍니다.</li>
+          <li><b>음성 안내</b>: 내 수, AI 수, 해설, 따낸 돌, 단수 경고, 결과를 앱이 직접 읽어 줍니다. 스크린리더를 쓰신다면 겹치지 않게 "음성 안내"를 꺼도 됩니다. <b>Alt+R</b>은 마지막 안내를 다시 듣기, <b>Alt+T</b>는 남은 시간 듣기입니다.</li>
+          <li><b>타이머</b>: 내 차례에만 시간이 흐르고, 남은 시간을 소리로 알려 줍니다.</li>
           <li>좌표: 열은 왼쪽부터 A~T(I는 쓰지 않음), 행은 아래쪽이 1입니다.</li>
         </ul>
       </div>
     </section>
-
-    <!-- 바둑 -->
-    <section id="tab-go" class="tab" aria-labelledby="go-title">
-      <h2 id="go-title" class="sr-only">바둑</h2>
-      <div class="game">
-        <div class="board-wrap">
-          <canvas id="go-canvas" width="720" height="720" tabindex="0" role="application"
-                  aria-roledescription="바둑판" aria-label="바둑판. 방향키로 이동, Enter로 착수"></canvas>
-        </div>
-        <aside class="panel">
-          <div class="controls">
-            <label>판 <select id="go-size"><option>9</option><option>13</option><option>19</option></select></label>
-            <label>내 돌 <select id="go-color"><option value="B">흑 (선)</option><option value="W">백 (후)</option></select></label>
-            <label>덤 <input id="go-komi" type="number" step="0.5" value="6.5"></label>
-            <label>모드 <select id="go-blind">
-              <option value="off">일반</option>
-              <option value="human">맹기 (수순 공개)</option>
-              <option value="strict">완전 맹기 (수순도 숨김)</option>
-            </select></label>
-            <button id="go-new" class="primary">새 대국</button>
-          </div>
-          <form id="go-form" class="controls coord-form">
-            <label>좌표 <input id="go-coord" autocomplete="off" placeholder="예: D4 또는 pass" aria-describedby="go-info"></label>
-            <button type="submit">두기</button>
-          </form>
-          <div class="controls">
-            <button id="go-pass">패스</button>
-            <button id="go-undo">무르기</button>
-            <button id="go-resign">기권</button>
-            <button id="go-read">판 읽기</button>
-            <button id="go-peek" hidden>엿보기 (누르고 있기)</button>
-          </div>
-          <div id="go-info" class="info" aria-live="polite"></div>
-          <div id="go-moves-wrap" hidden>
-            <h3>수순 (맹기)</h3>
-            <div id="go-moves" class="moves"></div>
-          </div>
-          <h3>AI 해설</h3>
-          <ol id="go-log" class="log" role="log" aria-live="polite"></ol>
-        </aside>
-      </div>
-    </section>
-
-    <!-- 오목 -->
-    <section id="tab-omok" class="tab" aria-labelledby="omok-title">
-      <h2 id="omok-title" class="sr-only">오목</h2>
-      <div class="game">
-        <div class="board-wrap">
-          <canvas id="omok-canvas" width="720" height="720" tabindex="0" role="application"
-                  aria-roledescription="오목판" aria-label="오목판. 방향키로 이동, Enter로 착수"></canvas>
-        </div>
-        <aside class="panel">
-          <div class="controls">
-            <label>내 돌 <select id="omok-color"><option value="B">흑 (선)</option><option value="W">백 (후)</option></select></label>
-            <button id="omok-new" class="primary">새 게임</button>
-          </div>
-          <form id="omok-form" class="controls coord-form">
-            <label>좌표 <input id="omok-coord" autocomplete="off" placeholder="예: H8" aria-describedby="omok-info"></label>
-            <button type="submit">두기</button>
-          </form>
-          <div class="controls">
-            <button id="omok-undo">무르기</button>
-            <button id="omok-read">판 읽기</button>
-          </div>
-          <div id="omok-info" class="info" aria-live="polite"></div>
-          <h3>AI 해설</h3>
-          <ol id="omok-log" class="log" role="log" aria-live="polite"></ol>
-        </aside>
-      </div>
-    </section>
+    <section id="tab-go" class="tab"></section>
+    <section id="tab-atari" class="tab"></section>
+    <section id="tab-tsumego" class="tab"></section>
+    <section id="tab-omok" class="tab"></section>
+    <section id="tab-pente" class="tab"></section>
+    <section id="tab-connect6" class="tab"></section>
   </main>
 
   <script src="common.js"></script>
-  <script src="go.js"></script>
-  <script src="omok.js"></script>
+  <script src="games.js"></script>
 </body>
 </html>
