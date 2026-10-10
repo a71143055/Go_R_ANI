@@ -4,10 +4,23 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>GoArcade</RootNamespace>
+    <EngineDir>$(MSBuildProjectDirectory)/../engine</EngineDir>
+    <EngineOut>$(EngineDir)/target/release</EngineOut>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Anthropic" Version="12.55.0" />
   </ItemGroup>
+
+  <!-- C# 빌드 전에 Rust 엔진(cdylib)을 빌드하고 출력 폴더로 복사한다 -->
+  <Target Name="BuildRustEngine" BeforeTargets="AssignTargetPaths">
+    <Exec Command="cargo build --release --manifest-path &quot;$(EngineDir)/Cargo.toml&quot;" />
+    <ItemGroup>
+      <None Include="$(EngineOut)/libbaduk_engine.so" Condition="Exists('$(EngineOut)/libbaduk_engine.so')" Link="libbaduk_engine.so" CopyToOutputDirectory="PreserveNewest" />
+      <None Include="$(EngineOut)/libbaduk_engine.dylib" Condition="Exists('$(EngineOut)/libbaduk_engine.dylib')" Link="libbaduk_engine.dylib" CopyToOutputDirectory="PreserveNewest" />
+      <None Include="$(EngineOut)/baduk_engine.dll" Condition="Exists('$(EngineOut)/baduk_engine.dll')" Link="baduk_engine.dll" CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+  </Target>
 
 </Project>
