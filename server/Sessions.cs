@@ -8,7 +8,12 @@ public enum GameKind { Go, AtariGo, Line, Tsumego }
 /// <summary>한 판의 게임. 상태 JSON은 Rust 엔진이 만들고 읽는다.</summary>
 public sealed class Session(GameKind kind, JsonObject state, int humanColor)
 {
-    public string Id { get; } = Guid.NewGuid().ToString("N");
+    public string Id { get; init; } = Guid.NewGuid().ToString("N");
+    /// <summary>이 대국을 가진 계정 ID</summary>
+    public string? UserId { get; init; }
+    /// <summary>시작 국면 (기보 다시 듣기용)</summary>
+    public JsonObject Initial { get; init; } = (JsonObject)state.DeepClone();
+    public DateTime Created { get; init; } = DateTime.UtcNow;
     public GameKind Kind { get; } = kind;
     public JsonObject State { get; set; } = state;
     public int HumanColor { get; } = humanColor;
@@ -21,6 +26,7 @@ public sealed class Session(GameKind kind, JsonObject state, int humanColor)
     /// <summary>바둑 맹기 모드: "off" | "human" | "strict"</summary>
     public string Blind { get; init; } = "off";
     public int Peeks { get; set; }
+    public bool Resumed { get; init; }
     /// <summary>게임별 추가 정보 (사활 문제 정보, 풀이 상태 등). View에 그대로 실린다.</summary>
     public JsonObject Meta { get; } = new();
     public DateTime Touched { get; set; } = DateTime.UtcNow;
@@ -75,9 +81,10 @@ public sealed class SessionStore
         return s;
     }
 
-    public Session? Get(string id, GameKind kind)
+    public Session? Get(string id, GameKind kind, string? userId)
     {
-        if (_sessions.TryGetValue(id, out var s) && s.Kind == kind)
+        // 다른 계정의 대국에는 접근할 수 없다
+        if (_sessions.TryGetValue(id, out var s) && s.Kind == kind && s.UserId == userId)
         {
             s.Touched = DateTime.UtcNow;
             return s;

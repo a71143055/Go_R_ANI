@@ -28,9 +28,26 @@ public static class Games
     /// <summary>오목류·따내기 바둑 AI 생각 시간(ms)</summary>
     private static int QuickMs(string? level) => level switch { "easy" => 200, "hard" => 3000, _ => 800 };
 
+    private static IHttpContextAccessor _http = null!;
+    private static RecordStore _records = null!;
+
+    /// <summary>로그인한 계정 ID</summary>
+    public static string? CurrentUser() =>
+        _http.HttpContext?.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+    /// <summary>새 대국을 등록하고 바로 기록한다</summary>
+    private static Session Start(SessionStore store, Session s)
+    {
+        store.Add(s);
+        _records.Save(s);
+        return s;
+    }
+
     public static void MapGames(this WebApplication app)
     {
         var store = app.Services.GetRequiredService<SessionStore>();
+        _http = app.Services.GetRequiredService<IHttpContextAccessor>();
+        _records = app.Services.GetRequiredService<RecordStore>();
 
         app.MapGet("/api/status", () =>
         {
@@ -88,7 +105,7 @@ public static class Games
             if (req.HumanColor is not (1 or 2)) return BadColor();
             if (req.Blind is not ("off" or "human" or "strict")) return Results.BadRequest(new { error = "blind는 off / human / strict" });
             var res = Engine.Call("go_new", new JsonObject { ["size"] = req.Size, ["komi"] = req.Komi });
-            var s = store.Add(new Session(GameKind.Go, res["state"]!.AsObject(), req.HumanColor) { Blind = req.Blind });
+            var s = Start(store, new Session(GameKind.Go, res["state"]!.AsObject(), req.HumanColor) { Blind = req.Blind, UserId = CurrentUser() });
             return Results.Json(s.View());
         }));
 
@@ -221,7 +238,7 @@ public static class Games
                 board[c * n + c + 1] = 2;
                 board[(c + 1) * n + c] = 2;
             }
-            var s = store.Add(new Session(GameKind.AtariGo, state, req.HumanColor));
+            var s = Start(store, new Session(GameKind.AtariGo, state, req.HumanColor) { UserId = CurrentUser() });
             return Results.Json(s.View());
         }));
 
@@ -279,7 +296,7 @@ public static class Games
             var args = new JsonObject { ["variant"] = req.Variant };
             if (req.Size is int size) args["size"] = size;
             var res = Engine.Call("line_new", args);
-            var s = store.Add(new Session(GameKind.Line, res["state"]!.AsObject(), req.HumanColor));
+            var s = Start(store, new Session(GameKind.Line, res["state"]!.AsObject(), req.HumanColor) { UserId = CurrentUser() });
             return Results.Json(s.View());
         }));
 
@@ -352,9 +369,10 @@ public static class Games
         ts.MapPost("/new", (NewTsumegoRequest req) => Guard(() =>
         {
             var res = Engine.Call("tsumego_new", new JsonObject { ["id"] = req.Id });
-            var s = store.Add(new Session(GameKind.Tsumego, res["state"]!.AsObject(), humanColor: 1));
+            var s = new Session(GameKind.Tsumego, res["state"]!.AsObject(), humanColor: 1) { UserId = CurrentUser() };
             s.Meta["problem"] = res["problem"]!.DeepClone();
             s.Meta["status"] = "solving";
+            Start(store, s);
             return Results.Json(s.View());
         }));
 
@@ -455,7 +473,7 @@ public static class Games
 
     private static async Task<IResult> WithSessionAsync(SessionStore store, string id, GameKind kind, Func<Session, Task<IResult>> f)
     {
-        var s = store.Get(id, kind);
+        var s = store.Get(id, kind, CurrentUser());
         if (s == null) return Results.NotFound(new { error = "게임을 찾을 수 없습니다. 새 게임을 시작하세요" });
         // 같은 판에 대한 요청(예: 사람 수 + AI 수)이 겹치지 않도록 직렬화
         await s.Lock.WaitAsync();
@@ -463,7 +481,12 @@ public static class Games
         {
             var snapshot = s.State.DeepClone().AsObject();
             var undoDepth = s.Undo.Count;
-            try { return await f(s); }
+            try
+            {
+                var result = await f(s);
+                _records.Save(s); // 바뀐 대국을 계정 폴더에 기록
+                return result;
+            }
             catch (EngineException e)
             {
                 s.State = snapshot;
