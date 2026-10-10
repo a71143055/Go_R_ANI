@@ -145,7 +145,14 @@ Common.listen = () => {
     game.voice(parsed);
   };
   rec.onerror = e => {
-    const msg = { "not-allowed": "마이크 권한이 없습니다.", "no-speech": "말소리가 들리지 않았습니다.", network: "음성 인식에 인터넷 연결이 필요합니다." }[e.error];
+    const unsupported = "이 브라우저에서는 음성 인식 서비스를 쓸 수 없습니다. VS Code 통합 브라우저라면 크롬이나 엣지에서 열어 주세요. 좌표 입력과 키보드로는 계속 둘 수 있습니다.";
+    const msg = {
+      "not-allowed": "마이크 권한이 없습니다. 브라우저에서 마이크를 허용해 주세요.",
+      "service-not-allowed": unsupported,
+      network: navigator.onLine ? unsupported : "음성 인식에 인터넷 연결이 필요합니다.",
+      "no-speech": "말소리가 들리지 않았습니다.",
+      "audio-capture": "마이크를 찾을 수 없습니다.",
+    }[e.error];
     Common.announce(msg || `음성 인식 오류: ${e.error}`);
   };
   rec.onend = () => { btn.classList.remove("listening"); btn.setAttribute("aria-pressed", "false"); };

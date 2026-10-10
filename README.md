@@ -51,10 +51,16 @@ Rust 엔진 (engine/, cdylib)
 필요한 것: .NET SDK 10, Rust(cargo)
 
 ```bash
-./run.sh      # Rust 엔진 빌드 + C# 서버 실행
+./run.sh             # 빌드 → 서버 실행 → 준비되면 화면 열기 (종료: Ctrl+C)
+./run.sh --browser   # VS Code 터미널에서도 시스템 브라우저로 열기
+./run.sh --no-open   # 서버만 실행
 ```
 
-브라우저(크롬·엣지 권장)에서 <http://localhost:5000> 을 엽니다. `dotnet build`만 해도 C# 빌드 전에 Rust 엔진이 자동으로 빌드되어 출력 폴더로 복사됩니다.
+- **VS Code 터미널**에서 실행하면, 서버가 준비된 뒤 통합 브라우저로 여는 방법을 안내합니다: `Ctrl+Shift+P` → **Browser: Open Integrated Browser** → `http://localhost:5000`. VS Code 명령줄 도구로는 통합 브라우저를 열 수 없어서 이 단계만 직접 해야 합니다.
+- **일반 터미널**에서 실행하면 시스템 브라우저가 자동으로 열립니다.
+- 서버가 이미 떠 있으면 새로 띄우지 않고 주소만 엽니다.
+- `dotnet build`만 해도 C# 빌드 전에 Rust 엔진이 자동으로 빌드되어 출력 폴더로 복사됩니다.
+- 음성 인식은 크롬·엣지에서 가장 잘 됩니다. VS Code 통합 브라우저에서는 음성 인식이 안 될 수 있으니, 그럴 때는 좌표 입력이나 키보드로 두면 됩니다.
 
 ## 소리와 키보드로 두기 (접근성)
 
