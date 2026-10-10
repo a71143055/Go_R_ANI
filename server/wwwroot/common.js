@@ -92,7 +92,8 @@ Common.parseSpeech = raw => {
     [/^(새게임|새대국|새문제|다시시작|새로)/, "new"], [/^(힌트|도움)/, "hint"], [/^(기권|항복|포기)/, "resign"],
     [/^(남은시간|시간|몇초)/, "time"], [/^(다시말|반복|뭐라고|다시한번)/, "repeat"], [/^(다시풀|다시도전)/, "retry"],
     [/^(다음문제|다음)/, "next"], [/^(조용|그만말|멈춰)/, "quiet"],
-    [/^(끝내기|끝내|종료|앱종료|프로그램종료|나가기)/, "quit"],
+    [/^(앱종료|앱끝내|프로그램종료|프로그램끝내|앱닫|나가기)/, "quit"],
+    [/^(대국끝|대국종료|게임끝|게임종료|그만두|그만할|끝내기|끝내|계가|그만풀)/, "finish"],
   ];
   for (const [re, cmd] of commands) if (re.test(t)) return { cmd };
 
@@ -429,6 +430,7 @@ Common.createGame = cfg => {
           ${cfg.hasRetry ? `<button id="${k}-retry">다시 풀기</button>` : `<button id="${k}-undo">무르기</button>`}
           ${cfg.hasResign ? `<button id="${k}-resign">기권</button>` : ""}
           ${cfg.hasHint ? `<button id="${k}-hint">힌트</button>` : ""}
+          <button id="${k}-finish">${cfg.finishLabel || "대국 끝내기"}</button>
           <button id="${k}-read">판 읽기</button>
           ${cfg.extraButtonsHtml || ""}
         </div>
@@ -493,6 +495,7 @@ Common.createGame = cfg => {
     if (cfg.hasPass) $(`${k}-pass`).disabled = !playing;
     if (cfg.hasResign) $(`${k}-resign`).disabled = !playing;
     if (cfg.hasHint) $(`${k}-hint`).disabled = !playing;
+    $(`${k}-finish`).disabled = !v || v.over || g.busy;
     if (!cfg.hasRetry) $(`${k}-undo`).disabled = !v || g.busy || !v.canUndo;
     $(`${k}-read`).disabled = !v || hidden();
     if (cfg.tray && v) Common.renderTray($(`${k}-tray`), cfg.tray(v));
@@ -607,6 +610,7 @@ Common.createGame = cfg => {
       resign: () => cfg.hasResign ? click(`${k}-resign`) : Common.announce("이 게임에는 기권이 없습니다."),
       retry: () => cfg.hasRetry ? click(`${k}-retry`) : Common.announce("다시 풀기는 사활 문제에서만 됩니다."),
       time: () => g.clock.sayTime(),
+      finish: () => click(`${k}-finish`),
       next: () => Common.announce("다음 문제는 사활 문제에서만 됩니다."),
     };
     (actions[parsed.cmd] || (() => {}))();
@@ -637,6 +641,13 @@ Common.createGame = cfg => {
     if (confirm("기권하시겠습니까?") && await g.call("resign", {})) g.logResult();
   });
   $(`${k}-read`).addEventListener("click", () => g.read());
+  $(`${k}-finish`).addEventListener("click", async () => {
+    if (!g.view || g.view.over) return;
+    if (await g.call("finish", {}, cfg.finishing || "대국을 끝내는 중")) {
+      if (g.view.ai && g.view.ai.comment) g.log(Common.escape(g.view.ai.comment));
+      g.logResult();
+    }
+  });
   if (cfg.setup) cfg.setup(g);
 
   Common.games[k] = g;

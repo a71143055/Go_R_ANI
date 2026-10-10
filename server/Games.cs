@@ -43,6 +43,28 @@ public static class Games
         MapLine(app.MapGroup("/api/line"), store);
         MapTsumego(app.MapGroup("/api/tsumego"), store);
 
+        // 대국 끝내기 (바둑은 MapGo에서 계가로 처리)
+        app.MapPost("/api/atari/{id}/finish", (string id) => WithSession(store, id, GameKind.AtariGo, s => FinishNoResult(s, "")));
+        app.MapPost("/api/line/{id}/finish", (string id) => WithSession(store, id, GameKind.Line, s =>
+        {
+            var caps = s.State["captures"]!.AsArray();
+            var extra = s.State["variant"]!.GetValue<string>() == "pente" ? $" 따낸 돌은 흑 {caps[0]}개, 백 {caps[1]}개입니다." : "";
+            return FinishNoResult(s, extra);
+        }));
+        app.MapPost("/api/tsumego/{id}/finish", (string id, CancellationToken ct) => WithSession(store, id, GameKind.Tsumego, async s =>
+        {
+            if (s.Over) return Conflict("이 문제는 끝났습니다");
+            // 그만 풀기: 처음 국면의 정답을 알려 준다
+            var pid = s.Meta["problem"]!["id"]!.GetValue<string>();
+            var start = Engine.Call("tsumego_new", new JsonObject { ["id"] = pid })["state"]!.DeepClone();
+            var hint = await Task.Run(() => Engine.Call("tsumego_hint", new JsonObject { ["id"] = pid, ["state"] = start }), ct);
+            var answers = string.Join(", ", hint["moves"]!.AsArray().Select(m => m!.GetValue<string>()));
+            s.Over = true;
+            s.Result = "그만 풀기";
+            s.Meta["status"] = "failed";
+            return Results.Json(s.View(new JsonObject { ["ai"] = new JsonObject { ["comment"] = $"풀기를 그만둡니다. 첫 수 정답은 {answers}입니다." } }));
+        }));
+
         // 타이머: 사람의 시간이 다 되면 시간패
         foreach (var (prefix, kind) in new[] { ("go", GameKind.Go), ("atari", GameKind.AtariGo), ("line", GameKind.Line), ("tsumego", GameKind.Tsumego) })
         {
@@ -105,18 +127,16 @@ public static class Games
         {
             if (s.Score != null) return Results.Json(s.View());
             if (s.State["passes"]!.GetValue<int>() < 2) return Conflict("아직 종국되지 않았습니다 (양쪽 모두 패스해야 함)");
-            var state = s.State.DeepClone();
-            var dead = await Task.Run(() => Engine.Call("go_dead", new JsonObject { ["state"] = state, ["ms"] = 1500 }), ct);
-            var deadList = dead["dead"]!.AsArray();
-            var score = Engine.Call("go_score", new JsonObject { ["state"] = s.State.DeepClone(), ["dead"] = deadList.DeepClone() });
-            score.Remove("ok");
-            s.Score = score;
-            s.Over = true;
-            var bw = score["winner"]!.GetValue<string>() == "B" ? 1 : 2;
-            s.Result = $"{ColorName(bw)}({Who(s, bw)}) {score["margin"]}집 승 — 흑 {score["black"]} : 백 {score["white"]}";
-            var comment = deadList.Count == 0
-                ? "사석 없이 계가했습니다."
-                : $"사석 {deadList.Count}개를 판정했습니다: {string.Join(", ", deadList.Select(d => d!.GetValue<string>()))}";
+            var comment = await ScoreGo(s, ct);
+            return Results.Json(s.View(new JsonObject { ["ai"] = new JsonObject { ["comment"] = comment } }));
+        }));
+
+        // 대국 끝내기: 패스를 주고받지 않아도 지금 판으로 바로 계가
+        go.MapPost("/{id}/finish", (string id, CancellationToken ct) => WithSession(store, id, GameKind.Go, async s =>
+        {
+            if (s.Score != null) return Results.Json(s.View());
+            if (s.Over) return Conflict("이미 끝난 대국입니다");
+            var comment = "대국을 끝내고 지금 판으로 계가합니다. " + await ScoreGo(s, ct);
             return Results.Json(s.View(new JsonObject { ["ai"] = new JsonObject { ["comment"] = comment } }));
         }));
 
@@ -137,6 +157,23 @@ public static class Games
             if (!s.Over) s.Peeks++;
             return Results.Json(new { board = s.State["board"]!.DeepClone(), peeks = s.Peeks });
         }));
+    }
+
+    /// <summary>사석을 판정하고 계가해 결과를 세션에 기록한다. 해설 문장을 돌려준다.</summary>
+    private static async Task<string> ScoreGo(Session s, CancellationToken ct)
+    {
+        var state = s.State.DeepClone();
+        var dead = await Task.Run(() => Engine.Call("go_dead", new JsonObject { ["state"] = state, ["ms"] = 1500 }), ct);
+        var deadList = dead["dead"]!.AsArray();
+        var score = Engine.Call("go_score", new JsonObject { ["state"] = s.State.DeepClone(), ["dead"] = deadList.DeepClone() });
+        score.Remove("ok");
+        s.Score = score;
+        s.Over = true;
+        var bw = score["winner"]!.GetValue<string>() == "B" ? 1 : 2;
+        s.Result = $"{ColorName(bw)}({Who(s, bw)}) {score["margin"]}집 승 — 흑 {score["black"]} : 백 {score["white"]}";
+        return deadList.Count == 0
+            ? "사석 없이 계가했습니다."
+            : $"사석 {deadList.Count}개를 판정했습니다: {string.Join(", ", deadList.Select(d => d!.GetValue<string>()))}";
     }
 
     /// <summary>바둑 계열 공통 추가 정보: 사람이 방금 따낸 돌 + 단수 경고(맹기 중에는 생략)</summary>
@@ -373,6 +410,14 @@ public static class Games
     }
 
     // ------------------------------------------------------------ 공용
+
+    private static IResult FinishNoResult(Session s, string extra)
+    {
+        if (s.Over) return Conflict("이미 끝난 대국입니다");
+        s.Over = true;
+        s.Result = "대국을 끝냈습니다 — 승부 없음";
+        return Results.Json(s.View(new JsonObject { ["ai"] = new JsonObject { ["comment"] = ("대국을 끝냈습니다." + extra).Trim() } }));
+    }
 
     private static string StripPv(string comment)
     {
