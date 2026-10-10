@@ -37,7 +37,7 @@ public sealed class ClaudeAi
                 MaxTokens = 16000,
                 // 안전 분류기가 거절하면 서버 측에서 권장 대체 모델로 자동 재시도
                 Betas = ["server-side-fallback-2026-07-01"],
-                Fallbacks = "default",
+                Fallbacks = new Default(), // "default": 거절 사유별 권장 모델로 라우팅
                 System = system,
                 Messages = [new() { Role = Role.User, Content = prompt }],
                 OutputConfig = new BetaOutputConfig
