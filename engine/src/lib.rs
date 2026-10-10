@@ -8,11 +8,13 @@
 //!
 //! 엔진은 상태를 갖지 않는다. 게임 상태는 JSON으로 C# 쪽에 보관되고 매 요청마다 넘어온다.
 
+pub mod atari_ai;
 pub mod coord;
 pub mod go;
 pub mod go_ai;
 pub mod linegame;
 pub mod linegame_ai;
+pub mod tsumego;
 
 use serde_json::{json, Value};
 use std::ffi::{c_char, CStr, CString};
@@ -65,6 +67,36 @@ pub fn dispatch(req: &Value) -> Result<Value, String> {
             let st: go::GoState = field(req, "state")?;
             let dead: Vec<String> = opt_field(req, "dead", vec![])?;
             Ok(serde_json::to_value(st.score(&dead)).unwrap())
+        }
+        "go_ataris" => {
+            let st: go::GoState = field(req, "state")?;
+            Ok(json!({ "ataris": atari_ai::ataris(&st) }))
+        }
+        // ---------------- 따내기 바둑
+        "atari_genmove" => {
+            let st: go::GoState = field(req, "state")?;
+            let ms: u64 = opt_field(req, "ms", 1000)?;
+            Ok(serde_json::to_value(atari_ai::genmove(&st, ms)).unwrap())
+        }
+        // ---------------- 사활 문제
+        "tsumego_list" => {
+            let list: Vec<_> = tsumego::PROBLEMS.iter().map(tsumego::info).collect();
+            Ok(json!({ "problems": list }))
+        }
+        "tsumego_new" => {
+            let id: String = field(req, "id")?;
+            let p = tsumego::find(&id)?;
+            Ok(json!({ "state": p.initial_state(), "problem": tsumego::info(p) }))
+        }
+        "tsumego_reply" => {
+            let id: String = field(req, "id")?;
+            let st: go::GoState = field(req, "state")?;
+            Ok(serde_json::to_value(tsumego::reply(tsumego::find(&id)?, &st)).unwrap())
+        }
+        "tsumego_hint" => {
+            let id: String = field(req, "id")?;
+            let st: go::GoState = field(req, "state")?;
+            Ok(json!({ "moves": tsumego::hint(tsumego::find(&id)?, &st) }))
         }
         // ---------------- 줄 잇기 (오목·펜테·육목)
         "line_new" => {
