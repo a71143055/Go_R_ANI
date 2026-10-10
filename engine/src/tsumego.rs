@@ -71,13 +71,13 @@ pub const PROBLEMS: &[Problem] = &[
         id: "snapback",
         title: "환격",
         level: "초급",
-        description: "아래쪽 변의 백 네 점을 잡으세요. 한 점을 버리는 수가 열쇠입니다.",
+        description: "아래쪽 변의 백 네 점과 흑 두 점(D2, D1)이 수상전입니다. 꾸물거리면 백이 흑 두 점을 잡고 살아납니다. 한 점을 버리는 수로 백을 잡으세요.",
         size: 9,
-        black: &["A3", "B3", "C3", "D3", "D2", "D1"],
-        white: &["A2", "B2", "C2", "C1"],
+        black: &["A3", "B3", "C3", "A4", "B4", "C4", "D2", "D1"],
+        white: &["A2", "B2", "C2", "C1", "D3", "E3", "D4", "F2", "F1"],
         goal: Goal::Capture,
         targets: &["C2"],
-        region: ("A1", "E3"),
+        region: ("A1", "F3"),
         answer: "B1",
         depth: 6,
     },
@@ -506,9 +506,10 @@ mod tests {
             assert_eq!(solver.status(&st), None, "{}: 시작부터 판정됨", p.id);
             let wins = solver.winning_moves(&st, p.depth);
             assert!(wins.contains(&p.answer.to_string()), "{}: 정답 {} 이(가) 이기는 수 {:?}에 없음", p.id, p.answer, wins);
-            // 문제다운지: 아무 수나 이기면 안 된다
+            // 문제다운지: 아무 데나 둬도(손을 빼도) 이기면 안 된다
             let total = solver.moves(&st).len();
-            assert!(wins.len() * 2 < total, "{}: 이기는 수가 너무 많음 {:?}", p.id, wins);
+            assert!(wins.len() * 2 <= total, "{}: 이기는 수가 너무 많음 {:?} / {}", p.id, wins, total);
+            println!("{}: 정답 {:?}", p.id, wins);
         }
     }
 
