@@ -1,14 +1,14 @@
-// 공통 유틸: 탭 전환, Claude API 호출, 좌표 변환, 판 그리기
+// 공통 유틸: 탭 전환, 서버 API 호출, 좌표 변환, 판 그리기, 스크린리더 안내, 키보드 커서
 "use strict";
 
 const COLS = "ABCDEFGHJKLMNOPQRST"; // I 제외 (바둑 표준 표기)
 
 const Common = {
-  effort() {
-    return document.getElementById("effort").value;
+  think() {
+    return document.getElementById("think").value;
   },
 
-  // 서버 API 호출. AI 요청에는 현재 생각 깊이를 함께 보낸다.
+  // 서버 API 호출
   async api(path, payload = {}) {
     const res = await fetch(path, {
       method: "POST",
@@ -21,16 +21,30 @@ const Common = {
     return data;
   },
 
-  // Claude 응답(ai 필드)을 로그에 남긴다
-  logAi(listId, ai) {
+  // AI 응답(ai 필드)을 해설 목록에 남긴다 (목록은 aria-live라 스크린리더가 읽는다)
+  logAi(listId, ai, colorName) {
     if (!ai) return;
-    if (ai.error) Common.log(listId, Common.escape(ai.error), true);
     if (ai.move) {
-      const tag = ai.fallback ? " <small>(엔진 대체 수)</small>" : "";
-      Common.log(listId, `<span class="mv">${Common.escape(ai.move)}</span>${tag} ${ai.comment ? Common.escape(ai.comment) : ""}`);
+      const mv = ai.move.toLowerCase() === "pass" ? "패스" : ai.move;
+      Common.log(listId, `<span class="mv">AI${colorName ? " " + colorName : ""} ${Common.escape(mv)}</span> ${ai.comment ? Common.escape(ai.comment) : ""}`);
     } else if (ai.comment) {
       Common.log(listId, Common.escape(ai.comment));
     }
+  },
+
+  // 스크린리더에 즉시 읽힐 문장
+  announce(text) {
+    const el = document.getElementById("sr-announce");
+    el.textContent = "";
+    setTimeout(() => { el.textContent = text; }, 50);
+  },
+
+  // 판 상태를 문장으로 (판 읽기)
+  describeBoard(board, size) {
+    const groups = { 1: [], 2: [] };
+    board.forEach((c, i) => { if (c) groups[c].push(Common.toCoord(i % size, Math.floor(i / size), size)); });
+    const part = (name, list) => list.length ? `${name} ${list.length}개: ${list.join(", ")}` : `${name} 없음`;
+    return `${part("흑", groups[1])}. ${part("백", groups[2])}.`;
   },
 
   // (x, y) — y=0이 맨 위. 표기는 아래가 1행.
@@ -133,26 +147,71 @@ const Common = {
   },
 };
 
+// 키보드 커서: 판(canvas)에서 방향키로 이동하고 Enter/Space로 착수한다.
+// opts: { size(), cellText(x, y), onPlay(x, y), redraw() }
+Common.Cursor = class {
+  constructor(canvas, opts) {
+    this.opts = opts;
+    this.x = null;
+    this.y = null;
+    canvas.addEventListener("focus", () => {
+      if (this.x == null) { const c = Math.floor(opts.size() / 2); this.x = c; this.y = c; }
+      this.say();
+      opts.redraw();
+    });
+    canvas.addEventListener("blur", () => opts.redraw());
+    canvas.addEventListener("keydown", e => {
+      const n = opts.size();
+      const moves = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+      if (moves[e.key]) {
+        e.preventDefault();
+        const [dx, dy] = moves[e.key];
+        this.x = Math.min(n - 1, Math.max(0, (this.x ?? 0) + dx));
+        this.y = Math.min(n - 1, Math.max(0, (this.y ?? 0) + dy));
+        this.say();
+        opts.redraw();
+      } else if ((e.key === "Enter" || e.key === " ") && this.x != null) {
+        e.preventDefault();
+        opts.onPlay(this.x, this.y);
+      }
+    });
+    this.canvas = canvas;
+  }
+  active() { return document.activeElement === this.canvas && this.x != null; }
+  say() { Common.announce(`${Common.toCoord(this.x, this.y, this.opts.size())} ${this.opts.cellText(this.x, this.y)}`); }
+  draw(grid) {
+    if (!this.active()) return;
+    const ctx = grid.ctx, d = grid.step * 0.5;
+    ctx.save();
+    ctx.strokeStyle = "#1565c0"; ctx.lineWidth = 3;
+    ctx.strokeRect(grid.pos(this.x) - d, grid.pos(this.y) - d, d * 2, d * 2);
+    ctx.restore();
+  }
+};
+
 // 탭 전환
 function showTab(name) {
-  document.querySelectorAll(".tabs button").forEach(b => b.classList.toggle("active", b.dataset.tab === name));
+  document.querySelectorAll(".tabs button").forEach(b => {
+    b.classList.toggle("active", b.dataset.tab === name);
+    if (b.dataset.tab === name) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
+  });
   document.querySelectorAll(".tab").forEach(s => s.classList.toggle("active", s.id === "tab-" + name));
 }
 document.querySelectorAll(".tabs button").forEach(b => b.addEventListener("click", () => showTab(b.dataset.tab)));
 document.querySelectorAll("[data-goto]").forEach(b => b.addEventListener("click", () => showTab(b.dataset.goto)));
 
-// 생각 깊이 기억
+// 생각 시간 기억
 (() => {
-  const sel = document.getElementById("effort");
-  try { const v = localStorage.getItem("effort"); if (v) sel.value = v; } catch {}
-  sel.addEventListener("change", () => { try { localStorage.setItem("effort", sel.value); } catch {} });
+  const sel = document.getElementById("think");
+  try { const v = localStorage.getItem("think"); if (v) sel.value = v; } catch {}
+  sel.addEventListener("change", () => { try { localStorage.setItem("think", sel.value); } catch {} });
 })();
 
-// 서버/API 키 상태
+// 엔진 상태
 fetch("/api/status").then(r => r.json()).then(s => {
   const el = document.getElementById("status");
-  if (s.keyConfigured) { el.textContent = `AI: ${s.model} 연결됨`; el.className = "status ok"; }
-  else { el.textContent = "API 키 없음 — 엔진 대체 수로 진행 (.env 설정 필요)"; el.className = "status err"; }
+  el.textContent = `AI 준비됨 (${s.engine}, ${s.threads}스레드)`;
+  el.className = "status ok";
 }).catch(() => {
   const el = document.getElementById("status");
   el.textContent = "서버 연결 실패"; el.className = "status err";
