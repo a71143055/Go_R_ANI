@@ -6,8 +6,30 @@
   <title>바둑 게임방</title>
   <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="logged-out">
   <a class="skip" href="#main">본문으로 건너뛰기</a>
+
+  <!-- 로그인 화면 (로그인하기 전에는 이것만 보인다) -->
+  <section id="login-screen" class="login" aria-labelledby="login-title">
+    <h1 id="login-title">⚫⚪ 바둑 게임방</h1>
+    <p>로그인하면 대국 기록이 계정에 저장되어, 언제든 이어서 두고 다시 들을 수 있습니다.</p>
+    <form id="login-form" class="login-form">
+      <label>아이디 <input id="login-username" autocomplete="username" required></label>
+      <label>비밀번호 <input id="login-password" type="password" autocomplete="current-password" required></label>
+      <button type="submit" class="primary">로그인</button>
+    </form>
+    <form id="register-form" class="login-form" hidden>
+      <label>아이디 (3~20자) <input id="reg-username" autocomplete="username" required></label>
+      <label>이름 (선택, 화면과 음성에 쓰임) <input id="reg-name" autocomplete="name"></label>
+      <label>비밀번호 (6자 이상) <input id="reg-password" type="password" autocomplete="new-password" required></label>
+      <label>비밀번호 확인 <input id="reg-password2" type="password" autocomplete="new-password" required></label>
+      <button type="submit" class="primary">가입하고 시작하기</button>
+    </form>
+    <button id="to-register" class="link">처음이신가요? 회원가입</button>
+    <button id="to-login" class="link" hidden>이미 계정이 있나요? 로그인</button>
+    <div id="google-wrap" hidden><p>또는</p><div id="google-login"></div></div>
+    <p id="login-msg" class="login-msg" role="alert"></p>
+  </section>
   <header class="topbar">
     <h1>⚫⚪ 바둑 게임방</h1>
     <nav class="tabs" aria-label="게임 선택">
@@ -18,6 +40,7 @@
       <button data-tab="omok">오목</button>
       <button data-tab="pente">펜테</button>
       <button data-tab="connect6">육목</button>
+      <button data-tab="records">내 기록</button>
     </nav>
     <div class="settings">
       <button id="mic" class="mic" aria-pressed="false" title="음성으로 두기 (Alt+M)">🎤 말하기</button>
@@ -40,6 +63,8 @@
         </select>
       </label>
       <span id="status" class="status">엔진 확인 중…</span>
+      <span id="user-name" class="user-name"></span>
+      <button id="logout">로그아웃</button>
       <button id="quit" class="quit" title="앱 종료 (Alt+Q)">⏻ 앱 종료</button>
     </div>
   </header>
@@ -67,6 +92,7 @@
           <li><b>키보드</b>: 판에 초점을 맞추고 방향키로 이동, Enter나 Space로 둡니다. 이동할 때마다 좌표와 그 자리 상태를 읽어 줍니다.</li>
           <li><b>음성 안내</b>: 내 수, AI 수, 해설, 따낸 돌, 단수 경고, 결과를 앱이 직접 읽어 줍니다. 스크린리더를 쓰신다면 겹치지 않게 "음성 안내"를 꺼도 됩니다. <b>Alt+R</b>은 마지막 안내를 다시 듣기, <b>Alt+T</b>는 남은 시간 듣기, <b>Alt+Q</b>는 앱 종료입니다.</li>
           <li><b>타이머</b>: 내 차례에만 시간이 흐르고, 남은 시간을 소리로 알려 줍니다.</li>
+          <li><b>내 기록</b>: 모든 대국은 계정에 자동 저장됩니다. "내 기록"에서 전적을 보고, 진행 중인 대국을 이어서 두고, 지난 대국을 한 수씩 다시 들을 수 있습니다. 음성: "내 기록", "다음", "이전", "로그아웃".</li>
           <li><b>AI 난이도</b>: 하·중·상. "하"는 수를 깊이 읽지 않아 실수를 하고, "상"은 전력으로 둡니다. 사활 문제의 백은 항상 최선으로 응수합니다.</li>
           <li>좌표: 열은 왼쪽부터 A~T(I는 쓰지 않음), 행은 아래쪽이 1입니다.</li>
         </ul>
@@ -78,9 +104,11 @@
     <section id="tab-omok" class="tab"></section>
     <section id="tab-pente" class="tab"></section>
     <section id="tab-connect6" class="tab"></section>
+    <section id="tab-records" class="tab"></section>
   </main>
 
   <script src="common.js"></script>
   <script src="games.js"></script>
+  <script src="records.js"></script>
 </body>
 </html>

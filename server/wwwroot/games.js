@@ -197,7 +197,10 @@ Common.createGame({
     const ai = g.view.ai || {};
     if (ai.move) g.log(`<span class="mv">백 ${Common.escape(ai.move === "PASS" ? "패스" : ai.move)}</span>${Common.escape(g.capText(ai.captured))}`);
     g.log(Common.escape(ai.comment || ""));
-    if (g.view.meta.status === "solved") g.log("<b>🎉 정답입니다!</b> '다음 문제'로 넘어가세요.");
+    if (g.view.meta.status === "solved") {
+      g.log("<b>🎉 정답입니다!</b> '다음 문제'로 넘어가세요.");
+      g.loadProblems();
+    }
   },
   onVoice: (g, parsed) => {
     if (parsed.cmd === "next") { $("tsumego-next").click(); return true; }
@@ -205,12 +208,14 @@ Common.createGame({
   },
   setup: async g => {
     const sel = $("tsumego-problem");
-    try {
+    // 문제 목록 (이 계정이 푼 문제는 ✓) — 로그인 뒤, 그리고 문제를 풀 때마다 갱신
+    g.loadProblems = async () => {
+      const keep = sel.value;
       const list = await Common.api("/api/tsumego/list");
-      sel.innerHTML = list.map(p => `<option value="${p.id}">${Common.escape(`[${p.level}] ${p.title}`)}</option>`).join("");
-    } catch (e) {
-      g.log(Common.escape(e.message), true);
-    }
+      sel.innerHTML = list.map(p => `<option value="${p.id}">${Common.escape(`${p.solved ? "✓ " : ""}[${p.level}] ${p.title}`)}${p.solved ? " (푼 문제)" : ""}</option>`).join("");
+      if (keep) sel.value = keep;
+    };
+    Common.afterLogin.push(() => g.loadProblems());
     $("tsumego-retry").addEventListener("click", async () => {
       if (!g.view) return;
       if (await g.call("retry", {})) g.log("처음 배치로 되돌렸습니다. " + Common.describeBoard(g.view.state.board, g.view.state.size));

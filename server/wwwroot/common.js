@@ -19,6 +19,9 @@ const Common = {
     });
     let data;
     try { data = await res.json(); } catch { data = {}; }
+    if (res.status === 401 && !path.startsWith("/api/auth/")) {
+      Common.showLogin("로그인이 필요합니다. 다시 로그인해 주세요.");
+    }
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data;
   },
@@ -93,6 +96,7 @@ Common.parseSpeech = raw => {
     [/^(남은시간|시간|몇초)/, "time"], [/^(다시말|반복|뭐라고|다시한번)/, "repeat"], [/^(다시풀|다시도전)/, "retry"],
     [/^(다음문제|다음)/, "next"], [/^(조용|그만말|멈춰)/, "quiet"],
     [/^(앱종료|앱끝내|프로그램종료|프로그램끝내|앱닫|나가기)/, "quit"],
+    [/^(내기록|기록|전적)/, "records"], [/^(로그아웃)/, "logout"], [/^(이전|뒤로|앞수)/, "prev"],
     [/^(대국끝|대국종료|게임끝|게임종료|그만두|그만할|끝내기|끝내|계가|그만풀)/, "finish"],
   ];
   for (const [re, cmd] of commands) if (re.test(t)) return { cmd };
@@ -144,6 +148,9 @@ Common.listen = () => {
     if (parsed.cmd === "repeat") { Common.speak(Common.lastSpoken); return; }
     if (parsed.cmd === "quiet") { Common.stopSpeaking(); return; }
     if (parsed.cmd === "quit") { Common.quit(true); return; }
+    if (parsed.cmd === "records") { showTab("records"); return; }
+    if (parsed.cmd === "logout") { Common.logout(); return; }
+    if (Common.onTabVoice && Common.onTabVoice(parsed)) return;
     if (!game) { Common.announce("먼저 게임을 고르세요."); return; }
     game.voice(parsed);
   };
@@ -161,6 +168,93 @@ Common.listen = () => {
   rec.onend = () => { btn.classList.remove("listening"); btn.setAttribute("aria-pressed", "false"); };
   rec.start();
 };
+
+// ------------------------------------------------------------ 로그인
+
+Common.user = null;
+Common.afterLogin = [];   // 로그인 직후 실행할 일 (사활 문제 목록 등)
+
+Common.showLogin = msg => {
+  Common.user = null;
+  for (const g of Object.values(Common.games)) g.clock.stop();
+  document.body.classList.add("logged-out");
+  $("login-msg").textContent = msg || "";
+  setTimeout(() => $("login-username").focus(), 0);
+  Common.announce((msg ? msg + " " : "") + "바둑 게임방 로그인 화면입니다. 아이디와 비밀번호를 입력하세요. 처음이시면 회원가입을 누르세요.");
+};
+
+Common.onLogin = async user => {
+  Common.user = user;
+  document.body.classList.remove("logged-out");
+  $("user-name").textContent = `${user.displayName}님`;
+  Common.announce(`${user.displayName}님, 환영합니다.`);
+  for (const f of Common.afterLogin) { try { await f(user); } catch {} }
+  fetch("/api/status").then(r => r.json()).then(st => {
+    $("status").textContent = `AI 준비됨 (${st.engine}, ${st.threads}스레드)`;
+    $("status").className = "status ok";
+  }).catch(() => { $("status").textContent = "서버 연결 실패"; $("status").className = "status err"; });
+};
+
+Common.logout = async () => {
+  try { await Common.api("/api/auth/logout", {}); } catch {}
+  location.reload();
+};
+
+function setupLogin() {
+  const msg = $("login-msg");
+  const submit = async (path, body) => {
+    msg.textContent = "";
+    try {
+      const user = await Common.api(path, body);
+      await Common.onLogin(user);
+    } catch (e) {
+      msg.textContent = e.message;
+      Common.announce(e.message);
+    }
+  };
+  $("login-form").addEventListener("submit", e => {
+    e.preventDefault();
+    submit("/api/auth/login", { username: $("login-username").value, password: $("login-password").value });
+  });
+  $("register-form").addEventListener("submit", e => {
+    e.preventDefault();
+    if ($("reg-password").value !== $("reg-password2").value) {
+      msg.textContent = "비밀번호 확인이 맞지 않습니다.";
+      Common.announce(msg.textContent);
+      return;
+    }
+    submit("/api/auth/register", { username: $("reg-username").value, password: $("reg-password").value, displayName: $("reg-name").value });
+  });
+  const toggle = showRegister => {
+    $("login-form").hidden = showRegister;
+    $("register-form").hidden = !showRegister;
+    $("to-register").hidden = showRegister;
+    $("to-login").hidden = !showRegister;
+    msg.textContent = "";
+    setTimeout(() => (showRegister ? $("reg-username") : $("login-username")).focus(), 0);
+    Common.announce(showRegister ? "회원가입 화면입니다. 아이디, 이름, 비밀번호를 입력하세요." : "로그인 화면입니다.");
+  };
+  $("to-register").addEventListener("click", () => toggle(true));
+  $("to-login").addEventListener("click", () => toggle(false));
+  $("logout").addEventListener("click", () => Common.logout());
+
+  // Google 로그인: 서버에 클라이언트 ID가 설정된 경우에만 버튼을 보여 준다
+  Common.api("/api/auth/config").then(cfg => {
+    if (!cfg.googleClientId) return;
+    const s = document.createElement("script");
+    s.src = "https://accounts.google.com/gsi/client";
+    s.async = true;
+    s.onload = () => {
+      google.accounts.id.initialize({
+        client_id: cfg.googleClientId,
+        callback: r => submit("/api/auth/google", { credential: r.credential }),
+      });
+      google.accounts.id.renderButton($("google-login"), { theme: "outline", size: "large", text: "signin_with", locale: "ko" });
+      $("google-wrap").hidden = false;
+    };
+    document.head.appendChild(s);
+  }).catch(() => {});
+}
 
 // ------------------------------------------------------------ 앱 끝내기
 
@@ -583,6 +677,17 @@ Common.createGame = cfg => {
     await g.aiTurn();
   };
 
+  /** 저장된 대국 이어하기 */
+  g.resume = async view => {
+    g.view = view;
+    $(LOG).innerHTML = "";
+    g.clock.reset($("timer").value);
+    const h = view.state.history || [];
+    g.log(Common.escape(`이어서 둡니다. 지금까지 ${h.length}수, 나는 ${NAME[view.humanColor]}입니다.` + (h.length ? ` 마지막 수: ${h[h.length - 1]}.` : "")));
+    g.render();
+    await g.aiTurn();
+  };
+
   g.read = () => {
     if (!g.view || hidden()) { Common.announce("지금은 판을 읽을 수 없습니다."); return; }
     let text = Common.describeBoard(g.board(), size());
@@ -666,6 +771,7 @@ function showTab(name) {
   for (const g of Object.values(Common.games)) if (g !== Common.games[name]) g.clock.stop();
   Common.active = Common.games[name] || null;
   if (Common.active) Common.active.render();
+  if (name === "records" && Common.onShowRecords) Common.onShowRecords();
   const label = document.querySelector(`.tabs button[data-tab="${name}"]`)?.textContent;
   if (label) Common.announce(`${label} 화면입니다.`);
 }
@@ -701,12 +807,6 @@ document.addEventListener("DOMContentLoaded", () => {
     else if (key === "q") { e.preventDefault(); Common.quit(false); }
   });
 
-  fetch("/api/status").then(r => r.json()).then(s => {
-    const el = $("status");
-    el.textContent = `AI 준비됨 (${s.engine}, ${s.threads}스레드)`;
-    el.className = "status ok";
-  }).catch(() => {
-    const el = $("status");
-    el.textContent = "서버 연결 실패"; el.className = "status err";
-  });
+  setupLogin();
+  Common.api("/api/auth/me").then(user => Common.onLogin(user)).catch(() => Common.showLogin());
 });
