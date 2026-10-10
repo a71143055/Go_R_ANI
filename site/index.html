@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>바둑 게임방 — Go_R_ANI</title>
+  <meta name="description" content="바둑, 따내기 바둑, 사활 문제, 오목, 펜테, 육목을 자체 AI와 두는 앱. 음성과 키보드만으로도 끝까지 둘 수 있습니다.">
+  <style>
+    :root {
+      --bg: #f4efe6; --fg: #2b2620; --muted: #6b6155; --panel: #fffaf2; --line: #d9cfbf;
+      --accent: #8a5a2b; --accent-fg: #fff; --wood: #dcb35c;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #1d1a17; --fg: #ece5da; --muted: #a59a8c; --panel: #26221e; --line: #3d362f; --accent: #d39a5c; --accent-fg: #1d1a17; }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: system-ui, "Noto Sans KR", "Apple SD Gothic Neo", sans-serif; background: var(--bg); color: var(--fg); line-height: 1.7; }
+    a { color: var(--accent); }
+    :focus-visible { outline: 3px solid #1565c0; outline-offset: 2px; }
+    .wrap { max-width: 960px; margin: 0 auto; padding: 0 16px; }
+    header { padding: 56px 0 32px; }
+    h1 { font-size: clamp(1.8rem, 5vw, 2.6rem); margin: 0 0 8px; }
+    .lead { font-size: 1.15rem; color: var(--muted); max-width: 40em; }
+    .board { width: 120px; height: 120px; float: right; margin: 0 0 16px 16px; }
+    section { padding: 24px 0; border-top: 1px solid var(--line); }
+    h2 { font-size: 1.4rem; margin: 0 0 12px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; padding: 0; list-style: none; }
+    .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+    .card h3 { margin: 0 0 4px; font-size: 1.1rem; }
+    .card p { margin: 0; color: var(--muted); }
+    .downloads { display: flex; flex-wrap: wrap; gap: 12px; margin: 12px 0; }
+    .btn { display: inline-block; padding: 12px 18px; border-radius: 10px; background: var(--accent); color: var(--accent-fg); text-decoration: none; font-weight: 700; }
+    .btn.secondary { background: var(--panel); color: var(--fg); border: 1px solid var(--line); }
+    ol, ul { padding-left: 1.3em; }
+    code { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; }
+    footer { padding: 32px 0 48px; color: var(--muted); border-top: 1px solid var(--line); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <svg class="board" viewBox="0 0 120 120" role="img" aria-label="바둑판 위의 흑돌과 백돌">
+        <rect width="120" height="120" rx="10" fill="#dcb35c"/>
+        <g stroke="#3b2a14" stroke-width="1.5">
+          <path d="M20 20H100M20 40H100M20 60H100M20 80H100M20 100H100M20 20V100M40 20V100M60 20V100M80 20V100M100 20V100"/>
+        </g>
+        <circle cx="40" cy="40" r="9" fill="#111"/><circle cx="60" cy="60" r="9" fill="#111"/>
+        <circle cx="80" cy="40" r="9" fill="#f4f1ea" stroke="#999"/><circle cx="60" cy="80" r="9" fill="#f4f1ea" stroke="#999"/>
+      </svg>
+      <h1>바둑 게임방</h1>
+      <p class="lead">바둑판에서 하는 게임 여섯 가지를 <b>내장된 자체 AI</b>와 둡니다.
+        눈으로 보지 않아도 <b>음성과 키보드만으로</b> 끝까지 둘 수 있도록 만들었습니다.</p>
+      <div class="downloads">
+        <a class="btn" href="https://github.com/a71143055/Go_R_ANI/releases/latest/download/GoArcade-win-x64.zip">윈도우용 다운로드</a>
+        <a class="btn" href="https://github.com/a71143055/Go_R_ANI/releases/latest/download/GoArcade-osx-arm64.tar.gz">맥용 다운로드 (Apple 실리콘)</a>
+        <a class="btn" href="https://github.com/a71143055/Go_R_ANI/releases/latest/download/GoArcade-linux-x64.tar.gz">리눅스용 다운로드</a>
+        <a class="btn secondary" href="https://github.com/a71143055/Go_R_ANI/releases">모든 버전 보기</a>
+      </div>
+    </header>
+
+    <section aria-labelledby="games">
+      <h2 id="games">게임</h2>
+      <ul class="grid">
+        <li class="card"><h3>바둑</h3><p>9·13·19줄. 계가와 사석 판정, 맹기 바둑(돌을 보지 않고 두기)</p></li>
+        <li class="card"><h3>따내기 바둑</h3><p>돌을 하나라도 먼저 따내면 승리. 바둑 입문용</p></li>
+        <li class="card"><h3>사활 문제</h3><p>단수, 양단수, 환격, 직삼, 곡삼. 정답 판정과 힌트</p></li>
+        <li class="card"><h3>오목</h3><p>15줄, 5목 먼저 만들기</p></li>
+        <li class="card"><h3>펜테</h3><p>오목에 양쪽 막아 두 점 따내기를 더한 게임</p></li>
+        <li class="card"><h3>육목</h3><p>19줄, 한 번에 2개씩 놓아 6목 먼저</p></li>
+      </ul>
+    </section>
+
+    <section aria-labelledby="access">
+      <h2 id="access">소리와 키보드로 두기</h2>
+      <ul>
+        <li><b>음성 입력</b>: "디 사"라고 말하면 D4에 둡니다. "패스", "무르기", "판 읽기", "남은 시간", "대국 끝내기"도 말로 합니다.</li>
+        <li><b>음성 안내</b>: 내 수, AI 수와 해설, 따낸 돌, 단수 경고, 결과를 읽어 줍니다.</li>
+        <li><b>키보드</b>: 방향키로 판을 돌아다니면 좌표와 그 자리 상태를 읽어 주고, Enter로 둡니다.</li>
+        <li><b>타이머</b>: 남은 시간과 초읽기를 소리로 알려 줍니다.</li>
+        <li><b>AI 난이도</b>: 하·중·상</li>
+        <li><b>내 기록</b>: 계정마다 모든 대국이 저장되고, 이어서 두거나 한 수씩 다시 들을 수 있습니다.</li>
+      </ul>
+    </section>
+
+    <section aria-labelledby="start">
+      <h2 id="start">시작하기</h2>
+      <ol>
+        <li>위에서 내 컴퓨터에 맞는 파일을 받아 압축을 풉니다.</li>
+        <li>윈도우는 <code>start.bat</code>을 더블클릭, 리눅스·맥은 터미널에서 <code>./start.sh</code>를 실행합니다.</li>
+        <li>브라우저에서 <code>http://localhost:5000</code>이 열리면 이메일로 회원가입하고 시작합니다.</li>
+      </ol>
+      <p>인터넷 없이도 AI와 둘 수 있습니다. 음성 입력은 크롬·엣지에서 가장 잘 되고, 인터넷 연결이 필요합니다.
+        맥에서 "확인되지 않은 개발자" 경고가 나오면 압축을 푼 폴더에서 <code>xattr -dr com.apple.quarantine .</code>을 한 번 실행하세요.</p>
+    </section>
+
+    <footer>
+      <p>소스 코드와 자세한 설명: <a href="https://github.com/a71143055/Go_R_ANI">github.com/a71143055/Go_R_ANI</a></p>
+    </footer>
+  </div>
+</body>
+</html>

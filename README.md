@@ -128,6 +128,31 @@ Google 로그인은 인터넷 연결이 필요합니다. 처음 로그인할 때
 - **완전 맹기**: 수순 목록도 숨기고 직전 수의 좌표만 알려 줍니다.
 - 대국 중에는 서버가 판 정보를 가려서 보냅니다. "엿보기" 버튼을 누르고 있는 동안만 판이 보이고, 엿본 횟수가 기록됩니다.
 
+## 배포
+
+외부 호스팅 계정 없이 GitHub만으로 배포합니다.
+
+| 무엇 | 어디 | 워크플로 |
+|---|---|---|
+| 소개·다운로드 페이지 | https://a71143055.github.io/Go_R_ANI/ (`site/`) | `.github/workflows/pages.yml` — `site/`가 바뀌어 main에 푸시되면 자동 |
+| 설치판 (윈도우·맥·리눅스) | GitHub Releases | `.github/workflows/release.yml` — `v`로 시작하는 태그를 푸시하면 자동 |
+| 자동 테스트 | Actions 탭 | `.github/workflows/ci.yml` — main 푸시·PR마다 |
+
+**처음 한 번 설정** (저장소 웹 화면에서):
+1. Settings → Pages → **Custom domain** 칸을 비우고 저장 (예전에 넣었던 `www.gorani.com`은 다른 사람의 도메인이라 쓸 수 없음)
+2. Settings → Pages → **Source**를 **GitHub Actions**로 변경
+
+**새 버전 내기**:
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+몇 분 뒤 Releases에 `GoArcade-win-x64.zip`, `GoArcade-osx-arm64.tar.gz`, `GoArcade-linux-x64.tar.gz`가 올라옵니다. 소개 페이지의 다운로드 버튼은 항상 최신 릴리스를 가리킵니다.
+
+설치판은 .NET 런타임과 Rust 엔진이 들어 있는 자체 포함형이라 받는 사람은 아무것도 설치할 필요가 없습니다. 압축을 풀고 `start.bat`(윈도우)이나 `./start.sh`(리눅스·맥)를 실행하면 되고, 계정과 기록은 그 폴더의 `data/`에 저장됩니다. 맥용은 Apple 실리콘(M1 이후)용이고 서명되지 않은 앱이라 처음에 보안 경고가 나올 수 있습니다.
+
+> GitHub Pages는 정적 파일만 제공하므로 앱 자체(서버·AI·로그인)는 Pages에서 돌아가지 않습니다. 여러 사람이 접속하는 웹 서비스로 열려면 서버 호스팅과 HTTPS가 필요합니다.
+
 ## 테스트
 
 ```bash

@@ -1,0 +1,25 @@
+# 푸시·PR마다 Rust 엔진 테스트와 C# 서버 빌드를 돌린다
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Rust 엔진 테스트 (규칙·AI·사활 문제 검증)
+        run: cargo test --release --manifest-path engine/Cargo.toml
+
+      - name: C# 서버 빌드
+        run: dotnet build server -c Release

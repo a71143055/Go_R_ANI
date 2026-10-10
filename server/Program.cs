@@ -1,7 +1,11 @@
 using GoArcade;
 using Microsoft.AspNetCore.Authentication.Cookies;
 
-var builder = WebApplication.CreateBuilder(args);
+// 배포판: 실행 파일 옆에 wwwroot가 있으면 그 폴더를 기준으로 동작 (어디서 실행하든 화면 파일을 찾도록)
+var baseDir = AppContext.BaseDirectory;
+var builder = Directory.Exists(Path.Combine(baseDir, "wwwroot"))
+    ? WebApplication.CreateBuilder(new WebApplicationOptions { Args = args, ContentRootPath = baseDir })
+    : WebApplication.CreateBuilder(args);
 builder.Services.AddSingleton<SessionStore>();
 builder.Services.AddSingleton<DataPaths>();
 builder.Services.AddSingleton<AccountStore>();

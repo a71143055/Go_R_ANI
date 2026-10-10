@@ -4,16 +4,20 @@ using System.Text.RegularExpressions;
 
 namespace GoArcade;
 
-/// <summary>플랫폼 데이터 폴더. 기본값은 저장소 루트의 data/ (환경변수 DATA_DIR로 바꿀 수 있음)</summary>
+/// <summary>
+/// 플랫폼 데이터 폴더. 개발 중에는 저장소 루트의 data/, 배포판에서는 실행 폴더의 data/.
+/// 환경변수 DATA_DIR로 바꿀 수 있다.
+/// </summary>
 public sealed class DataPaths
 {
     public string Root { get; }
 
     public DataPaths(IHostEnvironment env)
     {
+        var dev = File.Exists(Path.Combine(env.ContentRootPath, "GoArcade.csproj"));
         Root = Environment.GetEnvironmentVariable("DATA_DIR") is { Length: > 0 } dir
             ? Path.GetFullPath(dir)
-            : Path.GetFullPath(Path.Combine(env.ContentRootPath, "..", "data"));
+            : Path.GetFullPath(dev ? Path.Combine(env.ContentRootPath, "..", "data") : Path.Combine(env.ContentRootPath, "data"));
         Directory.CreateDirectory(Root);
     }
 

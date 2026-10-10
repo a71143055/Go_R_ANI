@@ -13,13 +13,18 @@
     <PackageReference Include="Google.Apis.Auth" Version="1.77.0" />
   </ItemGroup>
 
+  <!-- 배포판(dotnet publish)에 넣을 시작 스크립트와 안내문 -->
+  <ItemGroup>
+    <None Update="dist/**" CopyToPublishDirectory="PreserveNewest" Link="%(Filename)%(Extension)" />
+  </ItemGroup>
+
   <!-- C# 빌드 전에 Rust 엔진(cdylib)을 빌드하고 출력 폴더로 복사한다 -->
   <Target Name="BuildRustEngine" BeforeTargets="AssignTargetPaths">
     <Exec Command="cargo build --release --manifest-path &quot;$(EngineDir)/Cargo.toml&quot;" />
     <ItemGroup>
-      <None Include="$(EngineOut)/libbaduk_engine.so" Condition="Exists('$(EngineOut)/libbaduk_engine.so')" Link="libbaduk_engine.so" CopyToOutputDirectory="PreserveNewest" />
-      <None Include="$(EngineOut)/libbaduk_engine.dylib" Condition="Exists('$(EngineOut)/libbaduk_engine.dylib')" Link="libbaduk_engine.dylib" CopyToOutputDirectory="PreserveNewest" />
-      <None Include="$(EngineOut)/baduk_engine.dll" Condition="Exists('$(EngineOut)/baduk_engine.dll')" Link="baduk_engine.dll" CopyToOutputDirectory="PreserveNewest" />
+      <None Include="$(EngineOut)/libbaduk_engine.so" Condition="Exists('$(EngineOut)/libbaduk_engine.so')" Link="libbaduk_engine.so" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+      <None Include="$(EngineOut)/libbaduk_engine.dylib" Condition="Exists('$(EngineOut)/libbaduk_engine.dylib')" Link="libbaduk_engine.dylib" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+      <None Include="$(EngineOut)/baduk_engine.dll" Condition="Exists('$(EngineOut)/baduk_engine.dll')" Link="baduk_engine.dll" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     </ItemGroup>
   </Target>
 
