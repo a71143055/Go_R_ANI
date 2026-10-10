@@ -1,0 +1,23 @@
+# DuckDNS 주소로 인터넷에 열기 — ./run.sh --duckdns 가 이 파일로 Caddy를 실행한다.
+#
+# 인터넷 → 공유기 443 → 이 컴퓨터 8443 (Caddy, HTTPS) → 바둑 게임방 서버(localhost:APP_PORT)
+# 관리자 권한 없이 돌리려고 80/443 대신 8080/8443을 쓰고, 공유기에서 80→8080, 443→8443으로 넘긴다.
+# 인증서(Let's Encrypt)는 DuckDNS DNS 방식으로 받으므로 포트 80이 막혀 있어도 발급된다.
+{
+	http_port 8080
+	https_port 8443
+	# 기본 리다이렉트는 :8443을 붙이므로 끄고, 아래에서 직접 한다
+	auto_https disable_redirects
+}
+
+{$DUCKDNS_DOMAIN}.duckdns.org {
+	tls {
+		dns duckdns {$DUCKDNS_TOKEN}
+	}
+	encode gzip
+	reverse_proxy localhost:{$APP_PORT}
+}
+
+http://{$DUCKDNS_DOMAIN}.duckdns.org {
+	redir https://{host}{uri} permanent
+}

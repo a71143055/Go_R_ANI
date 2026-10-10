@@ -54,7 +54,8 @@ Rust 엔진 (engine/, cdylib)
 
 ```bash
 ./run.sh             # 빌드 → 서버 실행 → 준비되면 화면 열기 (종료: Ctrl+C)
-./run.sh --public    # 인터넷에도 열기 (Cloudflare 무료 터널, https 주소)
+./run.sh --public    # 인터넷에도 열기 (Cloudflare 무료 터널, 실행할 때마다 바뀌는 https 주소)
+./run.sh --duckdns   # 인터넷에도 열기 (DuckDNS 고정 주소 https://이름.duckdns.org)
 ./run.sh --browser   # VS Code 터미널에서도 시스템 브라우저로 열기
 ./run.sh --no-open   # 서버만 실행
 ```
@@ -83,8 +84,33 @@ Rust 엔진 (engine/, cdylib)
 - AI 계산은 동시에 2판까지만 돌리고, 나머지는 차례를 기다립니다.
 - 터널 뒤에서도 로그인 쿠키에 Secure가 붙습니다.
 
-**고정 주소 (무료)**
-완전히 내 이름인 주소(예: `gorani.co.kr`)는 구매해야 합니다. 무료로 고정 주소를 쓰려면 **eu.org 무료 도메인**(예: `gorani.eu.org`, 승인까지 며칠~몇 주)을 신청하고, Cloudflare 무료 계정에 연결한 뒤 이름 있는 터널(named tunnel)로 바꾸면 됩니다.
+### DuckDNS 고정 주소 (무료): `https://이름.duckdns.org`
+
+```bash
+./run.sh --duckdns
+```
+
+```
+인터넷 → https://이름.duckdns.org (443) → 공유기 443→8443 → 이 컴퓨터의 Caddy(HTTPS) → 게임 서버(5000)
+```
+
+처음 한 번 준비:
+1. **DuckDNS**: https://www.duckdns.org 에서 로그인 → 이름 추가(예: `goranibaduk`) → 화면 위쪽의 **token** 복사
+2. `cp deploy/duckdns.env.example deploy/duckdns.env` 후 이름과 토큰 입력 (`deploy/duckdns.env`는 git에 올라가지 않음)
+3. **공유기 포트 개방** (KT 공유기 관리 화면: http://172.30.1.254:8899)
+   - 외부 443(TCP) → 이 컴퓨터 IP의 8443
+   - 외부 80(TCP) → 이 컴퓨터 IP의 8080 (http로 들어온 사람을 https로 넘김, 선택)
+   - 이 컴퓨터 IP가 바뀌지 않게 **DHCP 고정 할당**(MAC 주소로 지정)
+4. **Caddy**(DuckDNS 플러그인 포함): https://caddyserver.com/download 에서 `caddy-dns/duckdns` 플러그인을 넣어 받아 `~/.local/bin/caddy`로 둡니다.
+
+동작:
+- 실행할 때와 5분마다 집 IP를 DuckDNS에 알려, IP가 바뀌어도 주소가 따라갑니다.
+- HTTPS 인증서(Let's Encrypt)는 Caddy가 DuckDNS DNS 방식으로 자동 발급·갱신합니다(포트 80이 막혀 있어도 됨).
+- 관리자 권한 없이 돌리려고 이 컴퓨터에서는 8080/8443 포트를 씁니다.
+- 외부 접속 확인은 휴대폰 와이파이를 끄고(모바일 데이터로) 주소에 들어가 보면 됩니다. 집 안에서는 공유기에 따라 안 열릴 수 있습니다.
+- 주의: 집 공인 IP가 이 주소로 공개됩니다. 이 컴퓨터가 켜져 있고 `--duckdns`가 실행 중일 때만 접속됩니다.
+
+**다른 고정 주소 방법**: 내 이름의 주소(예: `gorani.co.kr`)는 구매해야 합니다. 무료 도메인 **eu.org**(예: `gorani.eu.org`, 승인까지 며칠~몇 주)를 받아 Cloudflare 무료 계정에 연결하면, 포트 개방 없이 이름 있는 터널로도 고정 주소를 쓸 수 있습니다.
 
 ## 소리와 키보드로 두기 (접근성)
 

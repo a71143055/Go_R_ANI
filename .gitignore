@@ -7,3 +7,6 @@ server/obj/
 
 # 플랫폼 데이터 (계정·대국 기록)
 data/
+
+# DuckDNS 토큰
+deploy/duckdns.env
