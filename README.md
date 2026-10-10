@@ -1,6 +1,6 @@
 # Go_R_ANI — 바둑 게임방
 
-바둑판에서 하는 게임 여섯 가지를 **앱에 내장된 자체 AI**와 둘 수 있는 웹 앱입니다. 외부 AI 서비스나 API 키가 필요 없습니다.
+바둑판에서 하는 게임 여섯 가지를 **앱에 내장된 자체 AI**와 둘 수 있는 웹 플랫폼입니다. 외부 AI 서비스나 API 키가 필요 없고, 계정별로 모든 대국이 플랫폼에 저장됩니다.
 시각장애인도 즐길 수 있도록 **음성 입력·음성 안내·키보드 조작·좌표 입력**으로 화면을 보지 않고도 끝까지 둘 수 있게 만들었습니다.
 
 | 게임 | 내용 |
@@ -20,6 +20,8 @@
    ▼
 C# ASP.NET Core 서버 (server/)
    ├─ 게임 세션, API 엔드포인트               Games.cs, Sessions.cs
+   ├─ 로그인(자체 계정·Google), 내 기록 API     Auth.cs, Accounts.cs
+   ├─ 계정별 대국 기록 저장 (data/)            Records.cs
    └─ Rust 엔진 호출 (P/Invoke)               Engine.cs
          │  C ABI: engine_call(json) / engine_free(ptr)
          ▼
@@ -80,6 +82,40 @@ Rust 엔진 (engine/, cdylib)
 상단 "시간 제한": 없음 / 한 수 30초 / 한 수 60초 / 10분 + 초읽기 30초 3회 / 20분 + 초읽기 30초 3회.
 내 차례에만 시간이 흐르고, "1분 남았습니다", "초읽기 10초", 마지막 5초 카운트다운을 소리로 알려 줍니다. 시간이 다 되면 시간패입니다.
 
+## 계정과 기록 저장
+
+- **로그인해야 사용할 수 있습니다.** 자체 계정(아이디·비밀번호)으로 회원가입하거나, 설정된 경우 Google 계정으로 로그인합니다. 로그인은 30일 동안 유지됩니다.
+- 모든 대국은 둘 때마다 **플랫폼(서버)의 계정별 폴더에 자동 저장**됩니다. 사용자 컴퓨터나 드라이브가 아니라 서버의 데이터 폴더에 쌓입니다.
+  ```
+  data/
+  ├─ accounts.json                       계정 (비밀번호는 PBKDF2 해시로만 저장)
+  └─ users/{계정 ID}/records/{대국 ID}.json  대국 기록 (시작 국면, 현재 국면, 수순, 결과)
+  ```
+  데이터 폴더 위치는 환경변수 `DATA_DIR`로 바꿀 수 있습니다. `data/`는 git에 올라가지 않습니다.
+- **내 기록** 탭:
+  - 게임별 전적(승·패·무, 사활 문제 정답 수)
+  - 진행 중인 대국 **이어하기**: 서버를 껐다 켜도 됩니다.
+  - 지난 대국 **기보 다시 듣기**: 방향키나 음성 "다음"/"이전"으로 한 수씩, 따낸 돌까지 읽어 줍니다.
+  - 기록 삭제
+- 사활 문제 목록에는 이 계정이 푼 문제에 ✓가 붙습니다.
+- 다른 계정의 대국은 보거나 이어서 둘 수 없습니다.
+
+### Google 계정 로그인 켜기 (선택)
+
+Google 로그인은 Google이 발급하는 **OAuth 클라이언트 ID**가 있어야 켜집니다. 없으면 자체 계정 로그인만 보입니다.
+
+1. [Google Cloud Console](https://console.cloud.google.com/) → 프로젝트 만들기
+2. "API 및 서비스 → OAuth 동의 화면" 설정
+3. "사용자 인증 정보 → 사용자 인증 정보 만들기 → OAuth 클라이언트 ID" → 유형 **웹 애플리케이션**
+4. "승인된 자바스크립트 원본"에 `http://localhost:5000` 추가 (다른 주소로 서비스하면 그 주소도 추가)
+5. 발급된 클라이언트 ID로 서버 실행:
+   ```bash
+   GOOGLE_CLIENT_ID=xxxxxxxx.apps.googleusercontent.com ./run.sh
+   ```
+   또는 `server/appsettings.json`에 `"Google": { "ClientId": "..." }`를 넣습니다.
+
+Google 로그인은 인터넷 연결이 필요합니다. 처음 로그인하면 Google 계정에 연결된 플랫폼 계정이 자동으로 만들어지고, 이후에는 그 계정으로 기록이 저장됩니다.
+
 ## 사석함과 로봇 연동
 
 - 화면에 흑·백 **사석함**이 있어 따낸 돌이 쌓입니다(바둑, 따내기 바둑, 펜테).
@@ -106,6 +142,8 @@ cargo test --release --manifest-path engine/Cargo.toml -- --ignored --nocapture 
 | 메서드 | 경로 | 설명 |
 |---|---|---|
 | GET | `/api/status` | 엔진 정보 |
+| POST | `/api/auth/register`, `/login`, `/google`, `/logout` · GET `/api/auth/me` | 회원가입, 로그인, 로그아웃, 내 계정 |
+| GET | `/api/records/` · POST `/{id}/resume` · GET `/{id}/replay` · DELETE `/{id}` | 내 기록 목록, 이어하기, 기보 다시 듣기, 삭제 |
 | POST | `/api/go/new` | `{size, komi, humanColor, blind: "off"\|"human"\|"strict"}` |
 | POST | `/api/go/{id}/play` | `{move: "D4"\|"pass"}` 사람의 수 → `captured`, `ataris` |
 | POST | `/api/go/{id}/ai` | `{level: "easy"\|"normal"\|"hard"}` AI의 수 → `ai.move`, `ai.captured`, `ai.comment` |

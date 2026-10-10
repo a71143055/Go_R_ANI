@@ -683,7 +683,7 @@ Common.createGame = cfg => {
     $(LOG).innerHTML = "";
     g.clock.reset($("timer").value);
     const h = view.state.history || [];
-    g.log(Common.escape(`이어서 둡니다. 지금까지 ${h.length}수, 나는 ${NAME[view.humanColor]}입니다.` + (h.length ? ` 마지막 수: ${h[h.length - 1]}.` : "")));
+    g.log(Common.escape(`이어서 둡니다. 지금까지 ${h.length}수, 나는 ${NAME[view.humanColor]}입니다.` + (h.length ? ` 마지막 수: ${h[h.length - 1].replace(/^B /, "흑 ").replace(/^W /, "백 ").replace(/pass$/, "패스")}.` : "")));
     g.render();
     await g.aiTurn();
   };
