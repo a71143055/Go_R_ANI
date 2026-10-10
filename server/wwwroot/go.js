@@ -165,19 +165,21 @@
   $("go-size").addEventListener("change", () => { if (!view) draw(); });
 
   // 맹기 엿보기: 누르고 있는 동안만 실제 판을 보여 준다
+  let peeking = false;
   const peekStart = async e => {
     e.preventDefault();
     if (!view || busy) return;
+    peeking = true;
     try {
       const r = await Common.api(`/api/go/${view.id}/peek`);
       view.peeks = r.peeks;
-      peekBoard = r.board;
+      if (peeking) peekBoard = r.board; // 응답 전에 손을 뗐으면 보여 주지 않음
       render();
     } catch (err) {
       Common.log(LOG, Common.escape(err.message), true);
     }
   };
-  const peekEnd = () => { if (peekBoard) { peekBoard = null; render(); } };
+  const peekEnd = () => { peeking = false; if (peekBoard) { peekBoard = null; render(); } };
   $("go-peek").addEventListener("pointerdown", peekStart);
   ["pointerup", "pointerleave", "pointercancel"].forEach(ev => $("go-peek").addEventListener(ev, peekEnd));
 
