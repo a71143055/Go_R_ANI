@@ -55,20 +55,22 @@ public static class Games
             return Results.Json(new { engine = "Rust 자체 AI", threads = info["threads"]!.GetValue<int>() });
         });
 
-        MapGo(app.MapGroup("/api/go"), store);
-        MapAtari(app.MapGroup("/api/atari"), store);
-        MapLine(app.MapGroup("/api/line"), store);
-        MapTsumego(app.MapGroup("/api/tsumego"), store);
+        // 게임 API는 모두 로그인이 필요하다
+        var api = app.MapGroup("/api").RequireAuthorization();
+        MapGo(api.MapGroup("/go"), store);
+        MapAtari(api.MapGroup("/atari"), store);
+        MapLine(api.MapGroup("/line"), store);
+        MapTsumego(api.MapGroup("/tsumego"), store);
 
         // 대국 끝내기 (바둑은 MapGo에서 계가로 처리)
-        app.MapPost("/api/atari/{id}/finish", (string id) => WithSession(store, id, GameKind.AtariGo, s => FinishNoResult(s, "")));
-        app.MapPost("/api/line/{id}/finish", (string id) => WithSession(store, id, GameKind.Line, s =>
+        api.MapPost("/atari/{id}/finish", (string id) => WithSession(store, id, GameKind.AtariGo, s => FinishNoResult(s, "")));
+        api.MapPost("/line/{id}/finish", (string id) => WithSession(store, id, GameKind.Line, s =>
         {
             var caps = s.State["captures"]!.AsArray();
             var extra = s.State["variant"]!.GetValue<string>() == "pente" ? $" 따낸 돌은 흑 {caps[0]}개, 백 {caps[1]}개입니다." : "";
             return FinishNoResult(s, extra);
         }));
-        app.MapPost("/api/tsumego/{id}/finish", (string id, CancellationToken ct) => WithSession(store, id, GameKind.Tsumego, async s =>
+        api.MapPost("/tsumego/{id}/finish", (string id, CancellationToken ct) => WithSession(store, id, GameKind.Tsumego, async s =>
         {
             if (s.Over) return Conflict("이 문제는 끝났습니다");
             // 그만 풀기: 처음 국면의 정답을 알려 준다
@@ -85,7 +87,7 @@ public static class Games
         // 타이머: 사람의 시간이 다 되면 시간패
         foreach (var (prefix, kind) in new[] { ("go", GameKind.Go), ("atari", GameKind.AtariGo), ("line", GameKind.Line), ("tsumego", GameKind.Tsumego) })
         {
-            app.MapPost($"/api/{prefix}/{{id}}/timeout", (string id) => WithSession(store, id, kind, s =>
+            api.MapPost($"/{prefix}/{{id}}/timeout", (string id) => WithSession(store, id, kind, s =>
             {
                 if (s.Over) return Results.Json(s.View());
                 s.Over = true;
@@ -364,7 +366,17 @@ public static class Games
 
     private static void MapTsumego(RouteGroupBuilder ts, SessionStore store)
     {
-        ts.MapGet("/list", () => Results.Json(Engine.Call("tsumego_list")["problems"]));
+        // 문제 목록 + 이 계정이 푼 문제 표시
+        ts.MapGet("/list", () =>
+        {
+            var solved = _records.List(CurrentUser()!)
+                .Where(r => r["kind"]!.GetValue<string>() == nameof(GameKind.Tsumego) && r["outcome"]!.GetValue<string>() == "solved")
+                .Select(r => r["problemId"]?.GetValue<string>())
+                .ToHashSet();
+            var list = Engine.Call("tsumego_list")["problems"]!.AsArray();
+            foreach (var p in list) p!["solved"] = solved.Contains(p["id"]!.GetValue<string>());
+            return Results.Json(list);
+        });
 
         ts.MapPost("/new", (NewTsumegoRequest req) => Guard(() =>
         {
