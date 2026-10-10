@@ -8,16 +8,29 @@ const Common = {
     return document.getElementById("effort").value;
   },
 
-  async askClaude(path, payload) {
+  // 서버 API 호출. AI 요청에는 현재 생각 깊이를 함께 보낸다.
+  async api(path, payload = {}) {
     const res = await fetch(path, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...payload, effort: payload.effort || Common.effort() }),
+      body: JSON.stringify(payload),
     });
     let data;
     try { data = await res.json(); } catch { data = {}; }
     if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
     return data;
+  },
+
+  // Claude 응답(ai 필드)을 로그에 남긴다
+  logAi(listId, ai) {
+    if (!ai) return;
+    if (ai.error) Common.log(listId, Common.escape(ai.error), true);
+    if (ai.move) {
+      const tag = ai.fallback ? " <small>(엔진 대체 수)</small>" : "";
+      Common.log(listId, `<span class="mv">${Common.escape(ai.move)}</span>${tag} ${ai.comment ? Common.escape(ai.comment) : ""}`);
+    } else if (ai.comment) {
+      Common.log(listId, Common.escape(ai.comment));
+    }
   },
 
   // (x, y) — y=0이 맨 위. 표기는 아래가 1행.
@@ -29,21 +42,6 @@ const Common = {
     const y = size - parseInt(m[2], 10);
     if (x < 0 || x >= size || y < 0 || y >= size) return null;
     return { x, y };
-  },
-
-  boardAscii(board, size) {
-    const sym = [".", "X", "O"];
-    const lines = [];
-    const header = "   " + COLS.slice(0, size).split("").join(" ");
-    lines.push(header);
-    for (let y = 0; y < size; y++) {
-      const n = String(size - y).padStart(2, " ");
-      let row = n + " ";
-      for (let x = 0; x < size; x++) row += sym[board[y * size + x]] + (x < size - 1 ? " " : "");
-      lines.push(row + " " + n);
-    }
-    lines.push(header);
-    return lines.join("\n");
   },
 
   log(listId, html, isError = false) {
@@ -153,8 +151,8 @@ document.querySelectorAll("[data-goto]").forEach(b => b.addEventListener("click"
 // 서버/API 키 상태
 fetch("/api/status").then(r => r.json()).then(s => {
   const el = document.getElementById("status");
-  if (s.key_configured) { el.textContent = `AI: ${s.model} 연결됨`; el.className = "status ok"; }
-  else { el.textContent = "API 키 없음 — .env 설정 필요"; el.className = "status err"; }
+  if (s.keyConfigured) { el.textContent = `AI: ${s.model} 연결됨`; el.className = "status ok"; }
+  else { el.textContent = "API 키 없음 — 엔진 대체 수로 진행 (.env 설정 필요)"; el.className = "status err"; }
 }).catch(() => {
   const el = document.getElementById("status");
   el.textContent = "서버 연결 실패"; el.className = "status err";

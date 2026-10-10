@@ -32,9 +32,9 @@
     <!-- 홈 -->
     <section id="tab-home" class="tab active">
       <div class="home">
-        <p class="lead">상대 AI는 <b>Claude</b>입니다. 서버가 Anthropic API로 Claude를 직접 호출하며, 매 수마다 Claude가 둔 수의 의도를 설명해 줍니다.</p>
+        <p class="lead">상대 AI는 <b>Claude</b>입니다. C# 서버가 Anthropic API로 Claude를 직접 호출하고, 규칙 판정·물리 계산은 Rust 엔진이 맡습니다. 매 수마다 Claude가 수의 의도를 설명해 줍니다.</p>
         <div class="cards">
-          <button class="card" data-goto="go"><span class="big">바둑</span><span>9·13·19줄 대국. 패·자충 규칙, 중국식 계가, Claude 사석 판정</span></button>
+          <button class="card" data-goto="go"><span class="big">바둑</span><span>9·13·19줄 대국. 패·자충 규칙, 중국식 계가, Claude 사석 판정. <b>맹기 바둑</b> 지원</span></button>
           <button class="card" data-goto="omok"><span class="big">오목</span><span>15줄 판에서 5목 먼저 만들기 (자유 룰)</span></button>
           <button class="card" data-goto="alkkagi"><span class="big">알까기</span><span>돌을 튕겨 상대 돌을 판 밖으로! Claude가 샷을 고릅니다</span></button>
         </div>
@@ -51,14 +51,24 @@
             <label>판 <select id="go-size"><option>9</option><option>13</option><option>19</option></select></label>
             <label>내 돌 <select id="go-color"><option value="B">흑 (선)</option><option value="W">백 (후)</option></select></label>
             <label>덤 <input id="go-komi" type="number" step="0.5" value="6.5"></label>
+            <label>모드 <select id="go-blind">
+              <option value="off">일반</option>
+              <option value="human">맹기 (나만)</option>
+              <option value="both">맹기 (Claude도)</option>
+            </select></label>
             <button id="go-new" class="primary">새 대국</button>
           </div>
           <div class="controls">
             <button id="go-pass">패스</button>
             <button id="go-undo">무르기</button>
             <button id="go-resign">기권</button>
+            <button id="go-peek" hidden>엿보기 (누르고 있기)</button>
           </div>
           <div id="go-info" class="info"></div>
+          <div id="go-moves-wrap" hidden>
+            <h3>수순 (맹기)</h3>
+            <div id="go-moves" class="moves"></div>
+          </div>
           <h3>Claude의 한마디</h3>
           <ol id="go-log" class="log"></ol>
         </aside>
