@@ -51,7 +51,7 @@ input[type=number] { width: 64px; }
 .topbar h1 { font-size: 1.15rem; margin: 0; }
 .tabs { display: flex; gap: 4px; }
 .tabs button.active { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
-.ai-settings { margin-left: auto; display: flex; gap: 12px; align-items: center; font-size: .9rem; }
+
 .status { color: var(--muted); }
 .status.ok { color: var(--ok); }
 .status.err { color: var(--error); }

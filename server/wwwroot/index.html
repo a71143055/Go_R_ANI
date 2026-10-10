@@ -32,12 +32,11 @@
           <option value="main:1200:30:3">20분 + 초읽기 30초 3회</option>
         </select>
       </label>
-      <label>AI 생각 시간
-        <select id="think">
-          <option value="fast">빠름</option>
-          <option value="normal" selected>보통</option>
-          <option value="deep">깊게</option>
-          <option value="max">아주 깊게</option>
+      <label>AI 난이도
+        <select id="level">
+          <option value="easy">하</option>
+          <option value="normal" selected>중</option>
+          <option value="hard">상</option>
         </select>
       </label>
       <span id="status" class="status">엔진 확인 중…</span>
@@ -67,6 +66,7 @@
           <li><b>키보드</b>: 판에 초점을 맞추고 방향키로 이동, Enter나 Space로 둡니다. 이동할 때마다 좌표와 그 자리 상태를 읽어 줍니다.</li>
           <li><b>음성 안내</b>: 내 수, AI 수, 해설, 따낸 돌, 단수 경고, 결과를 앱이 직접 읽어 줍니다. 스크린리더를 쓰신다면 겹치지 않게 "음성 안내"를 꺼도 됩니다. <b>Alt+R</b>은 마지막 안내를 다시 듣기, <b>Alt+T</b>는 남은 시간 듣기입니다.</li>
           <li><b>타이머</b>: 내 차례에만 시간이 흐르고, 남은 시간을 소리로 알려 줍니다.</li>
+          <li><b>AI 난이도</b>: 하·중·상. "하"는 수를 깊이 읽지 않아 실수를 하고, "상"은 전력으로 둡니다. 사활 문제의 백은 항상 최선으로 응수합니다.</li>
           <li>좌표: 열은 왼쪽부터 A~T(I는 쓰지 않음), 행은 아래쪽이 1입니다.</li>
         </ul>
       </div>

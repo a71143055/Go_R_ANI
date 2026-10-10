@@ -9,7 +9,7 @@ const Common = {
   games: {},        // 탭 이름 → 게임 객체
   active: null,     // 지금 보고 있는 게임
 
-  think() { return $("think").value; },
+  level() { return $("level").value; },
 
   async api(path, payload) {
     const res = await fetch(path, payload === undefined ? {} : {
@@ -499,7 +499,7 @@ Common.createGame = cfg => {
 
   g.logResult = () => { if (g.view.result) g.log(`<b>결과: ${Common.escape(g.view.result)}</b>`); };
 
-  g.capText = list => (list && list.length ? ` — 돌 ${list.length}개를 따냈습니다 (${list.join(", ")})` : "");
+  g.capText = list => (list && list.length ? ` (따낸 돌 ${list.length}개: ${list.join(", ")})` : "");
   g.logWarnings = () => {
     const v = g.view;
     for (const a of v.ataris || []) {
@@ -512,7 +512,7 @@ Common.createGame = cfg => {
   g.aiTurn = async () => {
     const v = g.view;
     if (v.over || v.state.to_play === v.humanColor) return;
-    if (await g.call("ai", { think: Common.think() }, "AI가 생각하는 중")) {
+    if (await g.call("ai", { level: Common.level() }, "AI가 생각하는 중")) {
       const ai = g.view.ai || {};
       if (ai.move) {
         const mv = ai.move.toLowerCase() === "pass" ? "패스" : ai.move;
@@ -637,7 +637,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll("[data-goto]").forEach(b => b.addEventListener("click", () => showTab(b.dataset.goto)));
 
   // 설정 기억
-  for (const id of ["think", "timer", "voice-out", "voice-rate"]) {
+  for (const id of ["level", "timer", "voice-out", "voice-rate"]) {
     const el = $(id);
     const key = "set-" + id;
     try {

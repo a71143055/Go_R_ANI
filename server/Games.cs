@@ -10,8 +10,8 @@ public record NewAtariRequest(int Size = 7, int HumanColor = 1, bool Cross = tru
 public record NewLineRequest(string Variant = "omok", int HumanColor = 1, int? Size = null);
 public record NewTsumegoRequest(string Id);
 public record MoveRequest(string Move);
-/// <param name="Think">AI 생각 시간: "fast" | "normal" | "deep" | "max"</param>
-public record AiRequest(string? Think = null);
+/// <param name="Level">AI 난이도: "easy"(하) | "normal"(중) | "hard"(상)</param>
+public record AiRequest(string? Level = null);
 
 /// <summary>
 /// 게임별 HTTP 엔드포인트. 규칙 판정과 AI 모두 Rust 엔진이 맡는다.
@@ -19,15 +19,14 @@ public record AiRequest(string? Think = null);
 /// </summary>
 public static class Games
 {
-    private static int GoMs(string? think) => think switch
-    {
-        "fast" => 1000, "deep" => 8000, "max" => 15000, _ => 3000,
-    };
+    /// <summary>난이도 → 엔진 level(1 하, 2 중, 3 상)</summary>
+    private static int Level(string? level) => level switch { "easy" => 1, "hard" => 3, _ => 2 };
 
-    private static int QuickMs(string? think) => think switch
-    {
-        "fast" => 300, "deep" => 3000, "max" => 6000, _ => 1000,
-    };
+    /// <summary>바둑 AI 생각 시간(ms)</summary>
+    private static int GoMs(string? level) => level switch { "easy" => 500, "hard" => 6000, _ => 2000 };
+
+    /// <summary>오목류·따내기 바둑 AI 생각 시간(ms)</summary>
+    private static int QuickMs(string? level) => level switch { "easy" => 200, "hard" => 3000, _ => 800 };
 
     public static void MapGames(this WebApplication app)
     {
@@ -85,7 +84,7 @@ public static class Games
             if (s.Over) return Conflict("이미 끝난 대국입니다");
             if (s.ToPlay != s.AiColor) return Conflict("사람 차례입니다");
             var state = s.State.DeepClone();
-            var gen = await Task.Run(() => Engine.Call("go_genmove", new JsonObject { ["state"] = state, ["ms"] = GoMs(req.Think) }), ct);
+            var gen = await Task.Run(() => Engine.Call("go_genmove", new JsonObject { ["state"] = state, ["ms"] = GoMs(req.Level), ["level"] = Level(req.Level) }), ct);
             var captured = ApplyGoMove(s, gen["move"]!.GetValue<string>());
             if (s.State["passes"]!.GetValue<int>() >= 2) s.Over = true;
             var comment = gen["comment"]!.GetValue<string>();
@@ -203,7 +202,7 @@ public static class Games
             if (s.Over) return Conflict("이미 끝난 게임입니다");
             if (s.ToPlay != s.AiColor) return Conflict("사람 차례입니다");
             var state = s.State.DeepClone();
-            var gen = await Task.Run(() => Engine.Call("atari_genmove", new JsonObject { ["state"] = state, ["ms"] = QuickMs(req.Think) }), ct);
+            var gen = await Task.Run(() => Engine.Call("atari_genmove", new JsonObject { ["state"] = state, ["ms"] = QuickMs(req.Level), ["level"] = Level(req.Level) }), ct);
             var captured = ApplyGoMove(s, gen["move"]!.GetValue<string>());
             CheckAtariEnd(s, s.AiColor, captured);
             var extra = GoExtra(s, null);
@@ -265,7 +264,7 @@ public static class Games
             if (s.Over) return Conflict("이미 끝난 게임입니다");
             if (s.ToPlay != s.AiColor) return Conflict("사람 차례입니다");
             var state = s.State.DeepClone();
-            var gen = await Task.Run(() => Engine.Call("line_genmove", new JsonObject { ["state"] = state, ["ms"] = QuickMs(req.Think) }), ct);
+            var gen = await Task.Run(() => Engine.Call("line_genmove", new JsonObject { ["state"] = state, ["ms"] = QuickMs(req.Level), ["level"] = Level(req.Level) }), ct);
             var captured = new JsonArray();
             var moves = gen["moves"]!.AsArray().Select(m => m!.GetValue<string>()).ToList();
             foreach (var mv in moves)
