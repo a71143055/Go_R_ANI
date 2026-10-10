@@ -801,11 +801,11 @@ fn describe(st: &GoState, b: &Board, p: usize, winrate: f32, pv: &[String]) -> S
             let (lx, ly) = b.xy(b.last);
             x.abs_diff(lx).max(y.abs_diff(ly)) <= 1
         };
-        let corner = (x.min(n - 1 - x)) <= 4 && (y.min(n - 1 - y)) <= 4;
-        reasons.push(if stones < n / 2 && corner && (d == 2 || d == 3) {
-            "귀의 요처를 차지합니다".into()
-        } else if near_last {
+        let corner = x.min(n - 1 - x) <= n / 4 + 1 && y.min(n - 1 - y) <= n / 4 + 1;
+        reasons.push(if near_last {
             "상대 수에 바로 응수합니다".into()
+        } else if stones < n / 2 && corner && (d == 2 || d == 3) {
+            "귀의 요처를 차지합니다".into()
         } else if d <= 1 {
             "변에서 집을 굳힙니다".into()
         } else if d <= 3 {
