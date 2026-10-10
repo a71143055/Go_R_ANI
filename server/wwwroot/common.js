@@ -179,8 +179,8 @@ Common.showLogin = msg => {
   for (const g of Object.values(Common.games)) g.clock.stop();
   document.body.classList.add("logged-out");
   $("login-msg").textContent = msg || "";
-  setTimeout(() => $("login-username").focus(), 0);
-  Common.announce((msg ? msg + " " : "") + "바둑 게임방 로그인 화면입니다. 아이디와 비밀번호를 입력하세요. 처음이시면 회원가입을 누르세요.");
+  setTimeout(() => $("login-email").focus(), 0);
+  Common.announce((msg ? msg + " " : "") + "바둑 게임방 로그인 화면입니다. 이메일과 비밀번호를 입력하세요. 처음이시면 회원가입을 누르세요.");
 };
 
 Common.onLogin = async user => {
@@ -214,7 +214,7 @@ function setupLogin() {
   };
   $("login-form").addEventListener("submit", e => {
     e.preventDefault();
-    submit("/api/auth/login", { username: $("login-username").value, password: $("login-password").value });
+    submit("/api/auth/login", { email: $("login-email").value, password: $("login-password").value });
   });
   $("register-form").addEventListener("submit", e => {
     e.preventDefault();
@@ -223,7 +223,7 @@ function setupLogin() {
       Common.announce(msg.textContent);
       return;
     }
-    submit("/api/auth/register", { username: $("reg-username").value, password: $("reg-password").value, displayName: $("reg-name").value });
+    submit("/api/auth/register", { email: $("reg-email").value, password: $("reg-password").value, displayName: $("reg-name").value });
   });
   const toggle = showRegister => {
     $("login-form").hidden = showRegister;
@@ -231,8 +231,8 @@ function setupLogin() {
     $("to-register").hidden = showRegister;
     $("to-login").hidden = !showRegister;
     msg.textContent = "";
-    setTimeout(() => (showRegister ? $("reg-username") : $("login-username")).focus(), 0);
-    Common.announce(showRegister ? "회원가입 화면입니다. 아이디, 이름, 비밀번호를 입력하세요." : "로그인 화면입니다.");
+    setTimeout(() => (showRegister ? $("reg-email") : $("login-email")).focus(), 0);
+    Common.announce(showRegister ? "회원가입 화면입니다. 이메일, 이름, 비밀번호를 입력하세요." : "로그인 화면입니다.");
   };
   $("to-register").addEventListener("click", () => toggle(true));
   $("to-login").addEventListener("click", () => toggle(false));

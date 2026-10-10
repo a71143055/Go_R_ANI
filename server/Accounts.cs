@@ -39,6 +39,7 @@ public sealed class DataPaths
 
 public sealed record Account(
     string Id,
+    /// <summary>로그인 아이디 = 이메일 (소문자)</summary>
     string Username,
     string DisplayName,
     /// <summary>"local" | "google"</summary>
@@ -69,42 +70,66 @@ public sealed class AccountStore
         lock (_lock) return _accounts.FirstOrDefault(a => a.Id == id);
     }
 
-    public (Account? Account, string? Error) Register(string username, string password, string? displayName)
+    /// <summary>이메일 정규화: 앞뒤 공백 제거 + 소문자. 형식이 틀리면 null</summary>
+    public static string? NormalizeEmail(string? email)
     {
-        username = username.Trim();
-        if (!Regex.IsMatch(username, @"^[A-Za-z0-9가-힣_]{3,20}$"))
-            return (null, "아이디는 3~20자의 한글, 영문, 숫자, 밑줄(_)만 쓸 수 있습니다");
+        var e = (email ?? "").Trim().ToLowerInvariant();
+        return e.Length <= 254 && Regex.IsMatch(e, @"^[a-z0-9._%+\-]+@[a-z0-9\-]+(\.[a-z0-9\-]+)*\.[a-z]{2,}$") ? e : null;
+    }
+
+    private Account? FindByEmail(string email) => _accounts.FirstOrDefault(a => a.Username == email);
+
+    public (Account? Account, string? Error) Register(string email, string password, string? displayName)
+    {
+        var e = NormalizeEmail(email);
+        if (e == null)
+            return (null, "이메일 형식이 맞지 않습니다. 예: name@example.com");
         if (password.Length < 6)
             return (null, "비밀번호는 6자 이상이어야 합니다");
         lock (_lock)
         {
-            if (_accounts.Any(a => a.Provider == "local" && a.Username.Equals(username, StringComparison.OrdinalIgnoreCase)))
-                return (null, "이미 있는 아이디입니다");
-            var name = string.IsNullOrWhiteSpace(displayName) ? username : displayName.Trim()[..Math.Min(displayName.Trim().Length, 20)];
-            var acc = new Account(NewId(), username, name, "local", HashPassword(password), null, null, DateTime.UtcNow);
+            var existing = FindByEmail(e);
+            if (existing != null)
+                return (null, existing.PasswordHash == null
+                    ? "이 이메일은 Google 로그인으로 가입되어 있습니다. Google로 로그인하세요"
+                    : "이미 가입된 이메일입니다");
+            var name = string.IsNullOrWhiteSpace(displayName) ? e.Split('@')[0] : displayName.Trim()[..Math.Min(displayName.Trim().Length, 20)];
+            var acc = new Account(NewId(), e, name, "local", HashPassword(password), null, e, DateTime.UtcNow);
             _accounts.Add(acc);
             Save();
             return (acc, null);
         }
     }
 
-    public Account? VerifyPassword(string username, string password)
+    public Account? VerifyPassword(string email, string password)
     {
+        var e = NormalizeEmail(email);
+        if (e == null) return null;
         Account? acc;
-        lock (_lock)
-            acc = _accounts.FirstOrDefault(a => a.Provider == "local" && a.Username.Equals(username.Trim(), StringComparison.OrdinalIgnoreCase));
+        lock (_lock) acc = FindByEmail(e);
         return acc != null && acc.PasswordHash != null && CheckPassword(password, acc.PasswordHash) ? acc : null;
     }
 
-    /// <summary>Google 계정(sub 기준)으로 찾거나, 처음이면 플랫폼 계정을 만든다</summary>
-    public Account GetOrCreateGoogle(string sub, string? email, string? name)
+    /// <summary>
+    /// Google 계정으로 찾는다. 처음이면, Google이 인증한 이메일과 같은 계정이 있으면 그 계정에 연결하고,
+    /// 없으면 새 플랫폼 계정을 만든다 — 이메일 하나에 계정 하나.
+    /// </summary>
+    public Account GetOrCreateGoogle(string sub, string? email, bool emailVerified, string? name)
     {
         lock (_lock)
         {
-            var acc = _accounts.FirstOrDefault(a => a.Provider == "google" && a.GoogleSub == sub);
+            var acc = _accounts.FirstOrDefault(a => a.GoogleSub == sub);
             if (acc != null) return acc;
-            var display = string.IsNullOrWhiteSpace(name) ? (email ?? "Google 사용자") : name;
-            acc = new Account(NewId(), email ?? sub, display, "google", null, sub, email, DateTime.UtcNow);
+            var e = emailVerified ? NormalizeEmail(email) : null;
+            if (e != null && FindByEmail(e) is { } same)
+            {
+                var linked = same with { GoogleSub = sub };
+                _accounts[_accounts.IndexOf(same)] = linked;
+                Save();
+                return linked;
+            }
+            var display = string.IsNullOrWhiteSpace(name) ? (e ?? "Google 사용자") : name;
+            acc = new Account(NewId(), e ?? $"google:{sub}", display, "google", null, sub, e, DateTime.UtcNow);
             _accounts.Add(acc);
             Save();
             return acc;

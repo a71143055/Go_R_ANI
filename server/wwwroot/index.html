@@ -14,13 +14,13 @@
     <h1 id="login-title">⚫⚪ 바둑 게임방</h1>
     <p>로그인하면 대국 기록이 계정에 저장되어, 언제든 이어서 두고 다시 들을 수 있습니다.</p>
     <form id="login-form" class="login-form">
-      <label>아이디 <input id="login-username" autocomplete="username" required></label>
+      <label>이메일 <input id="login-email" type="email" autocomplete="email" placeholder="name@example.com" required></label>
       <label>비밀번호 <input id="login-password" type="password" autocomplete="current-password" required></label>
       <button type="submit" class="primary">로그인</button>
     </form>
     <form id="register-form" class="login-form" hidden>
-      <label>아이디 (3~20자) <input id="reg-username" autocomplete="username" required></label>
-      <label>이름 (선택, 화면과 음성에 쓰임) <input id="reg-name" autocomplete="name"></label>
+      <label>이메일 <input id="reg-email" type="email" autocomplete="email" placeholder="name@example.com" required></label>
+      <label>이름 (선택, 화면과 음성 안내에 쓰임) <input id="reg-name" autocomplete="name"></label>
       <label>비밀번호 (6자 이상) <input id="reg-password" type="password" autocomplete="new-password" required></label>
       <label>비밀번호 확인 <input id="reg-password2" type="password" autocomplete="new-password" required></label>
       <button type="submit" class="primary">가입하고 시작하기</button>

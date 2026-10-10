@@ -5,8 +5,8 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 
 namespace GoArcade;
 
-public record RegisterRequest(string Username, string Password, string? DisplayName = null);
-public record LoginRequest(string Username, string Password);
+public record RegisterRequest(string Email, string Password, string? DisplayName = null);
+public record LoginRequest(string Email, string Password);
 public record GoogleLoginRequest(string Credential);
 
 /// <summary>로그인(자체 계정 + Google)과 계정별 기록 API</summary>
@@ -28,7 +28,7 @@ public static class AuthApi
             new AuthenticationProperties { IsPersistent = true, ExpiresUtc = DateTimeOffset.UtcNow.AddDays(30) });
     }
 
-    private static object Me(Account acc) => new { id = acc.Id, username = acc.Username, displayName = acc.DisplayName, provider = acc.Provider };
+    private static object Me(Account acc) => new { id = acc.Id, email = acc.Email, displayName = acc.DisplayName, provider = acc.Provider };
 
     public static void MapAuth(this WebApplication app)
     {
@@ -46,7 +46,7 @@ public static class AuthApi
 
         auth.MapPost("/register", async (RegisterRequest req, HttpContext ctx) =>
         {
-            var (acc, error) = accounts.Register(req.Username ?? "", req.Password ?? "", req.DisplayName);
+            var (acc, error) = accounts.Register(req.Email ?? "", req.Password ?? "", req.DisplayName);
             if (acc == null) return Results.BadRequest(new { error });
             await SignIn(ctx, acc);
             return Results.Json(Me(acc));
@@ -54,11 +54,11 @@ public static class AuthApi
 
         auth.MapPost("/login", async (LoginRequest req, HttpContext ctx) =>
         {
-            var acc = accounts.VerifyPassword(req.Username ?? "", req.Password ?? "");
+            var acc = accounts.VerifyPassword(req.Email ?? "", req.Password ?? "");
             if (acc == null)
             {
                 await Task.Delay(500); // 무차별 대입을 늦춘다
-                return Results.BadRequest(new { error = "아이디 또는 비밀번호가 맞지 않습니다" });
+                return Results.BadRequest(new { error = "이메일 또는 비밀번호가 맞지 않습니다" });
             }
             await SignIn(ctx, acc);
             return Results.Json(Me(acc));
@@ -78,7 +78,7 @@ public static class AuthApi
             {
                 return Results.BadRequest(new { error = "Google 로그인 정보를 확인하지 못했습니다" });
             }
-            var acc = accounts.GetOrCreateGoogle(payload.Subject, payload.Email, payload.Name);
+            var acc = accounts.GetOrCreateGoogle(payload.Subject, payload.Email, payload.EmailVerified, payload.Name);
             await SignIn(ctx, acc);
             return Results.Json(Me(acc));
         });
