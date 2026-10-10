@@ -779,7 +779,7 @@ fn describe(st: &GoState, b: &Board, p: usize, winrate: f32, pv: &[String]) -> S
     let mut reasons: Vec<String> = vec![];
 
     let mut after = st.clone();
-    let captured = after.play_coord(&coord_of(b, p)).unwrap_or(0);
+    let captured = after.play_coord(&coord_of(b, p)).map(|c| c.len()).unwrap_or(0);
     if captured > 0 {
         reasons.push(format!("돌 {captured}개를 따냅니다"));
     }

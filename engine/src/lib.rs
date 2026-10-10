@@ -42,7 +42,8 @@ pub fn dispatch(req: &Value) -> Result<Value, String> {
             let mut st: go::GoState = field(req, "state")?;
             let mv: String = field(req, "move")?;
             let captured = st.play_coord(&mv)?;
-            Ok(json!({ "state": st, "captured": captured }))
+            let points: Vec<String> = captured.iter().map(|&i| coord::format(i, st.size)).collect();
+            Ok(json!({ "state": st, "captured": points }))
         }
         "go_info" => {
             let st: go::GoState = field(req, "state")?;

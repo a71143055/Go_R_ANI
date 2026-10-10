@@ -96,8 +96,8 @@ impl GoState {
         (stones, nlib)
     }
 
-    /// 착수를 시뮬레이션한다. 성공 시 (새 판, 따낸 돌 수, 새 패 자리).
-    fn simulate(&self, idx: usize, color: u8) -> Result<(Vec<u8>, u32, Option<usize>), &'static str> {
+    /// 착수를 시뮬레이션한다. 성공 시 (새 판, 따낸 돌 위치들, 새 패 자리).
+    pub fn simulate(&self, idx: usize, color: u8) -> Result<(Vec<u8>, Vec<usize>, Option<usize>), &'static str> {
         if self.board[idx] != EMPTY {
             return Err("이미 돌이 있는 자리입니다");
         }
@@ -124,14 +124,15 @@ impl GoState {
         }
         // 한 점을 따내고, 놓은 돌이 활로 1개짜리 단독 돌이면 패
         let ko = if captured.len() == 1 && mine.len() == 1 && libs == 1 { Some(captured[0]) } else { None };
-        Ok((b, captured.len() as u32, ko))
+        Ok((b, captured, ko))
     }
 
     pub fn is_legal(&self, idx: usize) -> bool {
         self.simulate(idx, self.to_play).is_ok()
     }
 
-    pub fn play_coord(&mut self, mv: &str) -> Result<u32, String> {
+    /// 착수. 따낸 돌들의 위치(인덱스)를 돌려준다 — 화면의 사석함과 로봇의 돌 회수에 쓴다.
+    pub fn play_coord(&mut self, mv: &str) -> Result<Vec<usize>, String> {
         let color_ch = if self.to_play == BLACK { 'B' } else { 'W' };
         if mv.trim().eq_ignore_ascii_case("pass") {
             self.passes += 1;
@@ -139,18 +140,18 @@ impl GoState {
             self.last = None;
             self.history.push(format!("{color_ch} pass"));
             self.to_play = other(self.to_play);
-            return Ok(0);
+            return Ok(vec![]);
         }
         let idx = coord::parse(mv, self.size).ok_or_else(|| format!("잘못된 좌표: {mv}"))?;
-        let (b, n, ko) = self.simulate(idx, self.to_play).map_err(|e| format!("{mv}: {e}"))?;
+        let (b, captured, ko) = self.simulate(idx, self.to_play).map_err(|e| format!("{mv}: {e}"))?;
         self.board = b;
-        self.captures[(self.to_play - 1) as usize] += n;
+        self.captures[(self.to_play - 1) as usize] += captured.len() as u32;
         self.ko = ko;
         self.passes = 0;
         self.last = Some(idx);
         self.history.push(format!("{color_ch} {}", coord::format(idx, self.size)));
         self.to_play = other(self.to_play);
-        Ok(n)
+        Ok(captured)
     }
 
     pub fn ascii(&self) -> String {
@@ -244,11 +245,11 @@ mod tests {
     #[test]
     fn ko_rule() {
         let mut st = GoState::new(9, 6.5).unwrap();
-        // 패 모양 만들기: 흑 D5 C4 D3, 백 E5 F4 E3 E4?  표준 패 모양
+        // 패 모양: 흑 D5 C4 D3, 백 E5 F4 E3 + 백 D4를 흑 E4로 따냄
         play_all(&mut st, &["D5", "E5", "C4", "F4", "D3", "E3", "A1", "D4"]);
         // 흑 E4로 백 D4를 따냄 -> 패
-        let n = st.play_coord("E4").unwrap();
-        assert_eq!(n, 1);
+        let captured = st.play_coord("E4").unwrap();
+        assert_eq!(captured, vec![coord::parse("D4", 9).unwrap()]);
         assert_eq!(st.ko, coord::parse("D4", 9));
         // 백이 곧바로 D4로 되따내기 금지
         assert!(st.play_coord("D4").is_err());
