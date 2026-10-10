@@ -9,10 +9,6 @@
     <EngineOut>$(EngineDir)/target/release</EngineOut>
   </PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Anthropic" Version="12.55.0" />
-  </ItemGroup>
-
   <!-- C# 빌드 전에 Rust 엔진(cdylib)을 빌드하고 출력 폴더로 복사한다 -->
   <Target Name="BuildRustEngine" BeforeTargets="AssignTargetPaths">
     <Exec Command="cargo build --release --manifest-path &quot;$(EngineDir)/Cargo.toml&quot;" />

@@ -3,7 +3,7 @@ using System.Text.Json.Nodes;
 
 namespace GoArcade;
 
-public enum GameKind { Go, Omok, Alkkagi }
+public enum GameKind { Go, Omok }
 
 /// <summary>한 판의 게임. 상태 JSON은 Rust 엔진이 만들고 읽는다.</summary>
 public sealed class Session(GameKind kind, JsonObject state, int humanColor)
@@ -18,7 +18,7 @@ public sealed class Session(GameKind kind, JsonObject state, int humanColor)
     /// <summary>사람이 수를 두기 직전의 상태들 (무르기용)</summary>
     public Stack<JsonObject> Undo { get; } = new();
     public SemaphoreSlim Lock { get; } = new(1, 1);
-    /// <summary>바둑 맹기 모드: "off" | "human" | "both"</summary>
+    /// <summary>바둑 맹기 모드: "off" | "human" | "strict"</summary>
     public string Blind { get; init; } = "off";
     public int Peeks { get; set; }
     public DateTime Touched { get; set; } = DateTime.UtcNow;
@@ -32,7 +32,12 @@ public sealed class Session(GameKind kind, JsonObject state, int humanColor)
         // 맹기 대국 중에는 판 내용을 클라이언트에 보내지 않는다 (수순·직전 수만 공개)
         var hidden = Blind != "off" && !Over;
         if (hidden)
+        {
             state["board"] = new JsonArray(Enumerable.Range(0, state["board"]!.AsArray().Count).Select(_ => (JsonNode)0).ToArray());
+            // 완전 맹기: 수순도 직전 수 하나만 알려 준다
+            if (Blind == "strict" && state["history"] is JsonArray h && h.Count > 1)
+                state["history"] = new JsonArray(h[^1]!.DeepClone());
+        }
         var v = new JsonObject
         {
             ["id"] = Id,

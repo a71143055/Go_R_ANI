@@ -91,45 +91,7 @@ impl OmokState {
         coord::ascii(&self.board, SIZE)
     }
 
-    /// 한 방향 패턴 점수: 연속 돌 수와 열린 끝 수로 평가
-    fn dir_score(&self, idx: usize, color: u8, (dx, dy): (i32, i32)) -> f64 {
-        let (x0, y0) = ((idx % SIZE) as i32, (idx / SIZE) as i32);
-        let mut count = 1;
-        let mut open = 0;
-        for sign in [1, -1] {
-            let (mut x, mut y) = (x0 + dx * sign, y0 + dy * sign);
-            while self.at(x, y) == Some(color) {
-                count += 1;
-                x += dx * sign;
-                y += dy * sign;
-            }
-            if self.at(x, y) == Some(0) {
-                open += 1;
-            }
-        }
-        match (count, open) {
-            (c, _) if c >= 5 => 1_000_000.0,
-            (4, 2) => 50_000.0,
-            (4, 1) => 6_000.0,
-            (3, 2) => 5_000.0,
-            (3, 1) => 400.0,
-            (2, 2) => 300.0,
-            (2, 1) => 40.0,
-            (1, 2) => 10.0,
-            _ => 1.0,
-        }
-    }
-
-    fn point_score(&self, idx: usize, color: u8) -> f64 {
-        DIRS.iter().map(|&d| self.dir_score(idx, color, d)).sum()
-    }
-
-    fn near_stone(&self, idx: usize) -> bool {
-        let (x0, y0) = ((idx % SIZE) as i32, (idx / SIZE) as i32);
-        (-2..=2).any(|dy| (-2..=2).any(|dx| matches!(self.at(x0 + dx, y0 + dy), Some(c) if c != 0)))
-    }
-
-    /// 다음 수로 5목이 되는 자리(양쪽 모두). Claude에게 힌트로 전달한다.
+    /// 다음 수로 5목이 되는 자리(양쪽 모두). 화면을 보지 않는 사용자에게 경고로 알려 준다.
     pub fn urgent_points(&self) -> Vec<String> {
         let mut out = vec![];
         for i in 0..self.board.len() {
@@ -143,29 +105,6 @@ impl OmokState {
             }
         }
         out
-    }
-
-    /// Claude 응답을 쓸 수 없을 때의 휴리스틱 대체 수
-    pub fn fallback_move(&self) -> String {
-        let me = self.to_play;
-        let mut best: Option<(f64, usize)> = None;
-        for i in 0..self.board.len() {
-            if self.board[i] != 0 {
-                continue;
-            }
-            if self.last.is_some() && !self.near_stone(i) {
-                continue;
-            }
-            let center = {
-                let (x, y) = ((i % SIZE) as f64, (i / SIZE) as f64);
-                -((x - 7.0).abs() + (y - 7.0).abs()) * 0.5
-            };
-            let s = self.point_score(i, me) * 1.1 + self.point_score(i, 3 - me) + center + coord::hash_noise(i, self.history.len());
-            if best.map_or(true, |(b, _)| s > b) {
-                best = Some((s, i));
-            }
-        }
-        best.map(|(_, i)| coord::format(i, SIZE)).unwrap_or_else(|| "H8".into())
     }
 }
 
@@ -185,14 +124,12 @@ mod tests {
     }
 
     #[test]
-    fn fallback_blocks_four() {
+    fn urgent_points_found() {
         let mut st = OmokState::new();
         // 흑 4개 연속 (H8~L8), 백은 엉뚱한 곳
         for m in ["H8", "A1", "J8", "A3", "K8", "A5", "L8"] {
             st.play_coord(m).unwrap();
         }
-        let mv = st.fallback_move();
-        assert!(mv == "G8" || mv == "M8", "got {mv}");
         assert_eq!(st.urgent_points().len(), 2);
     }
 }

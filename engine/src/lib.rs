@@ -1,4 +1,4 @@
-//! 바둑 게임 모음 엔진.
+//! 바둑·오목 규칙 엔진 + 자체 AI (바둑: MCTS+RAVE, 오목: 알파-베타 탐색).
 //!
 //! C#에서 호출하는 C ABI는 두 함수뿐이다.
 //! - `engine_call(json)`: `{"cmd": "...", ...}` 요청을 받아 JSON 응답 문자열을 돌려준다.
@@ -6,10 +6,11 @@
 //!
 //! 엔진은 상태를 갖지 않는다. 게임 상태는 JSON으로 C# 쪽에 보관되고 매 요청마다 넘어온다.
 
-pub mod alkkagi;
 pub mod coord;
 pub mod go;
+pub mod go_ai;
 pub mod omok;
+pub mod omok_ai;
 
 use serde_json::{json, Value};
 use std::ffi::{c_char, CStr, CString};
@@ -47,9 +48,15 @@ pub fn dispatch(req: &Value) -> Result<Value, String> {
             let st: go::GoState = field(req, "state")?;
             Ok(json!({ "ascii": st.ascii(), "illegal": st.illegal_points() }))
         }
-        "go_fallback" => {
+        "go_genmove" => {
             let st: go::GoState = field(req, "state")?;
-            Ok(json!({ "move": st.fallback_move() }))
+            let ms: u64 = opt_field(req, "ms", 3000)?;
+            Ok(serde_json::to_value(go_ai::genmove(&st, ms)).unwrap())
+        }
+        "go_dead" => {
+            let st: go::GoState = field(req, "state")?;
+            let ms: u64 = opt_field(req, "ms", 1500)?;
+            Ok(json!({ "dead": go_ai::dead_stones(&st, ms) }))
         }
         "go_score" => {
             let st: go::GoState = field(req, "state")?;
@@ -68,27 +75,12 @@ pub fn dispatch(req: &Value) -> Result<Value, String> {
             let st: omok::OmokState = field(req, "state")?;
             Ok(json!({ "ascii": st.ascii(), "threats": st.urgent_points() }))
         }
-        "omok_fallback" => {
+        "omok_genmove" => {
             let st: omok::OmokState = field(req, "state")?;
-            Ok(json!({ "move": st.fallback_move() }))
+            let ms: u64 = opt_field(req, "ms", 1000)?;
+            Ok(serde_json::to_value(omok_ai::genmove(&st, ms)).unwrap())
         }
-        // ---------------- 알까기
-        "alk_new" => {
-            let count: usize = opt_field(req, "count", 5)?;
-            Ok(json!({ "state": alkkagi::AlkState::new(count)? }))
-        }
-        "alk_options" => {
-            let st: alkkagi::AlkState = field(req, "state")?;
-            Ok(json!({ "options": st.options(st.to_play) }))
-        }
-        "alk_shoot" => {
-            let mut st: alkkagi::AlkState = field(req, "state")?;
-            let stone: u32 = field(req, "stone")?;
-            let angle: f64 = field(req, "angle")?;
-            let power: f64 = field(req, "power")?;
-            let frames = st.shoot(stone, angle, power)?;
-            Ok(json!({ "state": st, "frames": frames }))
-        }
+        "engine_info" => Ok(json!({ "threads": go_ai::thread_count() })),
         other => Err(format!("알 수 없는 명령: {other}")),
     }
 }

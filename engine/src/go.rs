@@ -165,47 +165,6 @@ impl GoState {
             .collect()
     }
 
-    /// 사방이 내 돌(또는 판 끝)인 빈 점 = 대략적인 내 집눈
-    fn is_own_eye(&self, i: usize, color: u8) -> bool {
-        self.neighbors(i).all(|q| self.board[q] == color)
-    }
-
-    /// Claude 응답을 쓸 수 없을 때의 간단한 대체 수.
-    pub fn fallback_move(&self) -> String {
-        let color = self.to_play;
-        let mut best: Option<(f64, usize)> = None;
-        for i in 0..self.board.len() {
-            if self.board[i] != EMPTY || self.is_own_eye(i, color) {
-                continue;
-            }
-            let Ok((b, captured, _)) = self.simulate(i, color) else { continue };
-            let (_, libs) = self.group(&b, i);
-            let mut score = captured as f64 * 10.0 + libs.min(4) as f64;
-            if libs == 1 {
-                score -= 8.0; // 단수로 들어가는 수 회피
-            }
-            // 내 돌이 단수였다면 살리는 수 가산
-            for q in self.neighbors(i) {
-                if self.board[q] == color && self.group(&self.board, q).1 == 1 {
-                    score += 6.0;
-                }
-            }
-            // 가장자리 1선 회피, 3~4선 선호
-            let n = self.size;
-            let (x, y) = (i % n, i / n);
-            let edge = x.min(y).min(n - 1 - x).min(n - 1 - y);
-            score += match edge { 0 => -2.0, 1 => 0.0, 2 | 3 => 1.5, _ => 1.0 };
-            score += coord::hash_noise(i, self.history.len());
-            if best.map_or(true, |(s, _)| score > s) {
-                best = Some((score, i));
-            }
-        }
-        match best {
-            Some((s, i)) if s > -3.0 => coord::format(i, self.size),
-            _ => "pass".into(),
-        }
-    }
-
     /// 사석을 걷어낸 뒤 중국식 계가.
     pub fn score(&self, dead: &[String]) -> Score {
         let mut b = self.board.clone();
@@ -311,14 +270,5 @@ mod tests {
         assert_eq!(s.black, 15.0); // A,B,C 열
         assert_eq!(s.white, 10.5); // D,E 열 + 덤
         assert_eq!(s.winner, "B");
-    }
-
-    #[test]
-    fn fallback_is_legal() {
-        let mut st = GoState::new(9, 6.5).unwrap();
-        for _ in 0..60 {
-            let mv = st.fallback_move();
-            st.play_coord(&mv).unwrap();
-        }
     }
 }
