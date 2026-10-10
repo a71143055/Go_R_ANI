@@ -2,7 +2,8 @@ using System.Text.Json.Nodes;
 
 namespace GoArcade;
 
-public record NewGoRequest(int Size = 9, double Komi = 6.5, int HumanColor = 1);
+/// <param name="Blind">맹기 모드: "off" | "human"(나만 판을 못 봄) | "both"(Claude도 수순만 보고 둠)</param>
+public record NewGoRequest(int Size = 9, double Komi = 6.5, int HumanColor = 1, string Blind = "off");
 public record NewOmokRequest(int HumanColor = 1);
 public record NewAlkkagiRequest(int Count = 5);
 public record MoveRequest(string Move);
@@ -25,8 +26,9 @@ public static class Games
         go.MapPost("/new", (NewGoRequest req) => Guard(() =>
         {
             if (req.HumanColor is not (1 or 2)) return Results.BadRequest(new { error = "humanColor는 1(흑) 또는 2(백)" });
+            if (req.Blind is not ("off" or "human" or "both")) return Results.BadRequest(new { error = "blind는 off / human / both" });
             var res = Engine.Call("go_new", new JsonObject { ["size"] = req.Size, ["komi"] = req.Komi });
-            var s = store.Add(new Session(GameKind.Go, res["state"]!.AsObject(), req.HumanColor));
+            var s = store.Add(new Session(GameKind.Go, res["state"]!.AsObject(), req.HumanColor) { Blind = req.Blind });
             return Results.Json(s.View());
         }));
 
@@ -49,7 +51,19 @@ public static class Games
             var info = Engine.Call("go_info", new JsonObject { ["state"] = s.State.DeepClone() });
             var st = s.State;
             var color = s.AiColor == 1 ? "흑(X)" : "백(O)";
-            var prompt = $"""
+            // Claude도 맹기: 판면과 착수 금지점을 주지 않고 전체 수순만 준다
+            var prompt = s.Blind == "both" ? $"""
+                [맹기 대국] 당신은 판을 볼 수 없습니다. 아래 전체 수순만으로 현재 판을 머릿속에 재구성하세요.
+                (따낸 돌은 판에서 사라진다는 점, 패와 자충수 규칙을 잊지 마세요.)
+
+                판 크기: {st["size"]}x{st["size"]}
+                덤: {st["komi"]} (백에게)
+                당신의 색: {color}
+                따낸 돌: 흑 {st["captures"]![0]}개, 백 {st["captures"]![1]}개
+                전체 수순: {FullHistory(st)}
+
+                {color} 차례입니다. 최선의 수를 고르세요.
+                """ : $"""
                 판 크기: {st["size"]}x{st["size"]}
                 덤: {st["komi"]} (백에게)
                 수순 번호: {st["history"]!.AsArray().Count + 1}
@@ -111,6 +125,14 @@ public static class Games
             s.Over = true;
             s.Result = $"{ColorName(s.AiColor)}(Claude) 불계승";
             return Results.Json(s.View());
+        }));
+
+        // 맹기 모드에서 판 엿보기 (횟수 기록)
+        go.MapPost("/{id}/peek", (string id) => WithSession(store, id, GameKind.Go, s =>
+        {
+            if (s.Blind == "off") return Conflict("맹기 대국이 아닙니다");
+            if (!s.Over) s.Peeks++;
+            return Results.Json(new { board = s.State["board"]!.DeepClone(), peeks = s.Peeks });
         }));
 
         // ------------------------------------------------------------ 오목
@@ -238,22 +260,28 @@ public static class Games
         var rejected = new List<string>();
         try
         {
-            var r = await claude.Ask(system, prompt, Prompts.MoveSchema, effort, ct);
-            comment = r["comment"]?.GetValue<string>();
-            foreach (var c in r["candidates"]?.AsArray() ?? [])
+            // 후보가 전부 둘 수 없는 자리면, 거절 사유를 알려 주고 한 번 더 묻는다
+            for (var attempt = 0; attempt < 2 && played == null; attempt++)
             {
-                var mv = c?.GetValue<string>();
-                if (string.IsNullOrWhiteSpace(mv)) continue;
-                try
+                var ask = attempt == 0 ? prompt :
+                    prompt + $"\n\n주의: 방금 고른 수는 모두 둘 수 없었습니다 — {string.Join(", ", rejected)}. 다른 수를 고르세요.";
+                var r = await claude.Ask(system, ask, Prompts.MoveSchema, effort, ct);
+                comment = r["comment"]?.GetValue<string>();
+                foreach (var c in r["candidates"]?.AsArray() ?? [])
                 {
-                    var res = Engine.Call(playCmd, new JsonObject { ["state"] = s.State.DeepClone(), ["move"] = mv });
-                    s.State = res["state"]!.AsObject();
-                    played = mv.Trim().ToUpperInvariant();
-                    break;
-                }
-                catch (EngineException e)
-                {
-                    rejected.Add(e.Message);
+                    var mv = c?.GetValue<string>();
+                    if (string.IsNullOrWhiteSpace(mv)) continue;
+                    try
+                    {
+                        var res = Engine.Call(playCmd, new JsonObject { ["state"] = s.State.DeepClone(), ["move"] = mv });
+                        s.State = res["state"]!.AsObject();
+                        played = mv.Trim().ToUpperInvariant();
+                        break;
+                    }
+                    catch (EngineException e)
+                    {
+                        rejected.Add(e.Message);
+                    }
                 }
             }
             if (played == null)
@@ -290,7 +318,7 @@ public static class Games
             s.Over = true;
             s.Result = c == s.HumanColor ? "승리! 상대 돌을 모두 떨어뜨렸습니다" : "Claude 승리 — 내 돌이 모두 떨어졌습니다";
         }
-        return res["frames"]!.AsArray();
+        return res["frames"]!.DeepClone().AsArray();
     }
 
     private static void CheckGoEnd(Session s)
@@ -319,6 +347,12 @@ public static class Games
 
     private static string ColorName(int c) => c == 1 ? "흑" : "백";
     private static string Who(Session s, int c) => c == s.HumanColor ? "나" : "Claude";
+
+    private static string FullHistory(JsonObject st)
+    {
+        var h = st["history"]!.AsArray().Select(x => x!.GetValue<string>()).ToList();
+        return h.Count == 0 ? "(없음)" : string.Join(", ", h.Select((m, i) => $"{i + 1}.{m}"));
+    }
 
     private static string RecentHistory(JsonObject st)
     {
