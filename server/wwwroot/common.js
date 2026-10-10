@@ -91,7 +91,8 @@ Common.parseSpeech = raw => {
     [/^(패스|통과|pass)/, "pass"], [/^(무르기|물러|되돌|취소|undo)/, "undo"], [/^(판읽|판을읽|보드읽|읽어)/, "read"],
     [/^(새게임|새대국|새문제|다시시작|새로)/, "new"], [/^(힌트|도움)/, "hint"], [/^(기권|항복|포기)/, "resign"],
     [/^(남은시간|시간|몇초)/, "time"], [/^(다시말|반복|뭐라고|다시한번)/, "repeat"], [/^(다시풀|다시도전)/, "retry"],
-    [/^(다음문제|다음)/, "next"], [/^(조용|그만|멈춰)/, "quiet"],
+    [/^(다음문제|다음)/, "next"], [/^(조용|그만말|멈춰)/, "quiet"],
+    [/^(끝내기|끝내|종료|앱종료|프로그램종료|나가기)/, "quit"],
   ];
   for (const [re, cmd] of commands) if (re.test(t)) return { cmd };
 
@@ -127,7 +128,6 @@ Common.listen = () => {
     return;
   }
   const game = Common.active;
-  if (!game) { Common.announce("먼저 게임을 고르세요."); return; }
   Common.stopSpeaking();
   const rec = new Common.Recognizer();
   rec.lang = "ko-KR";
@@ -142,6 +142,8 @@ Common.listen = () => {
     if (!parsed) { Common.announce(`"${alts[0]}"를 알아듣지 못했습니다. 예: 디 사, 패스, 무르기`); return; }
     if (parsed.cmd === "repeat") { Common.speak(Common.lastSpoken); return; }
     if (parsed.cmd === "quiet") { Common.stopSpeaking(); return; }
+    if (parsed.cmd === "quit") { Common.quit(true); return; }
+    if (!game) { Common.announce("먼저 게임을 고르세요."); return; }
     game.voice(parsed);
   };
   rec.onerror = e => {
@@ -157,6 +159,24 @@ Common.listen = () => {
   };
   rec.onend = () => { btn.classList.remove("listening"); btn.setAttribute("aria-pressed", "false"); };
   rec.start();
+};
+
+// ------------------------------------------------------------ 앱 끝내기
+
+/** 서버를 멈추고 화면을 종료 안내로 바꾼다. byVoice면 확인 창 없이 바로 (말로 요청한 경우) */
+Common.quit = async byVoice => {
+  if (!byVoice && !confirm("앱을 끝낼까요? 진행 중인 게임은 저장되지 않습니다.")) return;
+  for (const g of Object.values(Common.games)) g.clock.stop();
+  try {
+    await Common.api("/api/shutdown", {});
+  } catch (e) {
+    Common.announce(`끝내지 못했습니다: ${e.message}`);
+    return;
+  }
+  const msg = "앱을 종료했습니다. 이 창을 닫으셔도 됩니다. 다시 하려면 run.sh를 실행하세요.";
+  document.body.innerHTML = `<main class="bye"><h1>바둑 게임방을 종료했습니다</h1><p>이 창을 닫으셔도 됩니다.</p><p>다시 하려면 터미널에서 <code>./run.sh</code>를 실행하세요.</p><div id="sr-announce" class="sr-only" aria-live="assertive"></div></main>`;
+  Common.announce(msg);
+  setTimeout(() => window.close(), 4000); // 스크립트로 연 창이면 닫힌다
 };
 
 // ------------------------------------------------------------ 판 그리기
@@ -657,15 +677,17 @@ document.addEventListener("DOMContentLoaded", () => {
   }
   $("voice-out").addEventListener("change", () => { if (!Common.voiceOn()) Common.stopSpeaking(); else Common.speak("음성 안내를 켰습니다."); });
   $("mic").addEventListener("click", () => Common.listen());
+  $("quit").addEventListener("click", () => Common.quit(false));
   if (!Common.Recognizer) $("mic").title = "이 브라우저는 음성 인식을 지원하지 않습니다 (크롬·엣지 권장)";
 
-  // 단축키: Alt+M 음성 입력, Alt+R 다시 듣기, Alt+T 남은 시간
+  // 단축키: Alt+M 음성 입력, Alt+R 다시 듣기, Alt+T 남은 시간, Alt+Q 끝내기
   document.addEventListener("keydown", e => {
     if (!e.altKey) return;
     const key = e.key.toLowerCase();
     if (key === "m") { e.preventDefault(); Common.listen(); }
     else if (key === "r") { e.preventDefault(); Common.speak(Common.lastSpoken); }
     else if (key === "t" && Common.active) { e.preventDefault(); Common.active.clock.sayTime(); }
+    else if (key === "q") { e.preventDefault(); Common.quit(false); }
   });
 
   fetch("/api/status").then(r => r.json()).then(s => {

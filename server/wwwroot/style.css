@@ -100,3 +100,5 @@ ul.hint { padding-left: 1.2em; }
 .tray-stone { width: 12px; height: 12px; border-radius: 50%; border: 1px solid rgba(0,0,0,.4); }
 .tray-stone.b { background: #111; }
 .tray-stone.w { background: #f4f1ea; }
+.quit { border-color: #c62828; color: #c62828; font-weight: 700; }
+.bye { max-width: 640px; margin: 80px auto; padding: 0 16px; text-align: center; line-height: 1.7; }

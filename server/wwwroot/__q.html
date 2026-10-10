@@ -1,0 +1,9 @@
+<!doctype html><meta charset="utf-8"><iframe id="f" src="/index.html" style="width:1200px;height:700px"></iframe><div id="log"></div>
+<script>
+const f=document.getElementById('f'); const L=m=>document.getElementById('log').textContent+=m+' | ';
+f.onload=async()=>{const w=f.contentWindow;await new Promise(r=>setTimeout(r,500));
+L('BTN '+w.document.getElementById('quit').innerText);
+L('PARSE '+JSON.stringify(w.eval('Common').parseSpeech('끝내기'))+JSON.stringify(w.eval('Common').parseSpeech('앱 종료')));
+await w.eval('Common').quit(true); await new Promise(r=>setTimeout(r,300));
+L('AFTER '+w.document.body.innerText.replace(/\n/g,' '));};
+</script>
