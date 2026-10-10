@@ -1,4 +1,6 @@
-//! 바둑·오목 규칙 엔진 + 자체 AI (바둑: MCTS+RAVE, 오목: 알파-베타 탐색).
+//! 바둑판 게임 엔진 + 자체 AI.
+//! - 바둑 / 따내기 바둑 / 사활 문제: go.rs, go_ai.rs, atari_ai.rs, tsumego.rs
+//! - 오목 / 펜테 / 육목: linegame.rs, linegame_ai.rs
 //!
 //! C#에서 호출하는 C ABI는 두 함수뿐이다.
 //! - `engine_call(json)`: `{"cmd": "...", ...}` 요청을 받아 JSON 응답 문자열을 돌려준다.
@@ -9,8 +11,8 @@
 pub mod coord;
 pub mod go;
 pub mod go_ai;
-pub mod omok;
-pub mod omok_ai;
+pub mod linegame;
+pub mod linegame_ai;
 
 use serde_json::{json, Value};
 use std::ffi::{c_char, CStr, CString};
@@ -64,22 +66,27 @@ pub fn dispatch(req: &Value) -> Result<Value, String> {
             let dead: Vec<String> = opt_field(req, "dead", vec![])?;
             Ok(serde_json::to_value(st.score(&dead)).unwrap())
         }
-        // ---------------- 오목
-        "omok_new" => Ok(json!({ "state": omok::OmokState::new() })),
-        "omok_play" => {
-            let mut st: omok::OmokState = field(req, "state")?;
-            let mv: String = field(req, "move")?;
-            st.play_coord(&mv)?;
-            Ok(json!({ "state": st }))
+        // ---------------- 줄 잇기 (오목·펜테·육목)
+        "line_new" => {
+            let variant: String = field(req, "variant")?;
+            let size: Option<usize> = opt_field(req, "size", None)?;
+            Ok(json!({ "state": linegame::LineState::new(linegame::Variant::parse(&variant)?, size)? }))
         }
-        "omok_info" => {
-            let st: omok::OmokState = field(req, "state")?;
+        "line_play" => {
+            let mut st: linegame::LineState = field(req, "state")?;
+            let mv: String = field(req, "move")?;
+            let captured = st.play_coord(&mv)?;
+            let points: Vec<String> = captured.iter().map(|&i| coord::format(i, st.size)).collect();
+            Ok(json!({ "state": st, "captured": points }))
+        }
+        "line_info" => {
+            let st: linegame::LineState = field(req, "state")?;
             Ok(json!({ "ascii": st.ascii(), "threats": st.urgent_points() }))
         }
-        "omok_genmove" => {
-            let st: omok::OmokState = field(req, "state")?;
+        "line_genmove" => {
+            let st: linegame::LineState = field(req, "state")?;
             let ms: u64 = opt_field(req, "ms", 1000)?;
-            Ok(serde_json::to_value(omok_ai::genmove(&st, ms)).unwrap())
+            Ok(serde_json::to_value(linegame_ai::genmove(&st, ms)).unwrap())
         }
         "engine_info" => Ok(json!({ "threads": go_ai::thread_count() })),
         other => Err(format!("알 수 없는 명령: {other}")),

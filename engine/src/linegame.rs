@@ -287,9 +287,9 @@ mod tests {
     fn connect6_six_wins_five_does_not() {
         let mut st = LineState::new(Variant::Connect6, None).unwrap();
         // 흑: K10 / L10 M10 / N10 O10 / P10 Q10 (중간에 백 2개씩)
-        play(&mut st, &["K10", "A1", "A2", "L10", "M10", "A3", "A4", "N10", "O10"]);
+        play(&mut st, &["K10", "A1", "A3", "L10", "M10", "A5", "A7", "N10", "O10"]);
         assert_eq!(st.winner, None); // 5목은 아직
-        play(&mut st, &["A5", "A6", "P10"]);
+        play(&mut st, &["A9", "A11", "P10"]);
         assert_eq!(st.winner, Some(1));
     }
 }
