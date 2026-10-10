@@ -3,7 +3,7 @@ using System.Text.Json.Nodes;
 
 namespace GoArcade;
 
-public enum GameKind { Go, Omok }
+public enum GameKind { Go, AtariGo, Line, Tsumego }
 
 /// <summary>한 판의 게임. 상태 JSON은 Rust 엔진이 만들고 읽는다.</summary>
 public sealed class Session(GameKind kind, JsonObject state, int humanColor)
@@ -21,6 +21,8 @@ public sealed class Session(GameKind kind, JsonObject state, int humanColor)
     /// <summary>바둑 맹기 모드: "off" | "human" | "strict"</summary>
     public string Blind { get; init; } = "off";
     public int Peeks { get; set; }
+    /// <summary>게임별 추가 정보 (사활 문제 정보, 풀이 상태 등). View에 그대로 실린다.</summary>
+    public JsonObject Meta { get; } = new();
     public DateTime Touched { get; set; } = DateTime.UtcNow;
 
     public int ToPlay => State["to_play"]!.GetValue<int>();
@@ -50,6 +52,7 @@ public sealed class Session(GameKind kind, JsonObject state, int humanColor)
             ["result"] = Result,
             ["score"] = Score?.DeepClone(),
             ["canUndo"] = Undo.Count > 0,
+            ["meta"] = Meta.DeepClone(),
         };
         if (extra != null)
             foreach (var (k, val) in extra)
