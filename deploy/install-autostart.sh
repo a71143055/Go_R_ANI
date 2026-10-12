@@ -11,15 +11,16 @@ UNIT_DIR="$HOME/.config/systemd/user"
 TS="$HOME/.local/bin/tailscale --socket=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/goarcade-tailscaled.sock"
 
 if [ "${1:-}" = "--remove" ]; then
-  systemctl --user disable --now goarcade.service goarcade-tailscale.service 2>/dev/null || true
-  rm -f "$UNIT_DIR/goarcade.service" "$UNIT_DIR/goarcade-tailscale.service"
+  systemctl --user disable --now goarcade.service goarcade-tailscale.service goarcade-cloudflare.service 2>/dev/null || true
+  rm -f "$UNIT_DIR/goarcade.service" "$UNIT_DIR/goarcade-tailscale.service" "$UNIT_DIR/goarcade-cloudflare.service"
   systemctl --user daemon-reload
   echo "자동 실행을 해제했습니다."
   exit 0
 fi
 
 DOTNET_DIR="$(dirname "$(readlink -f "$(command -v dotnet)")")"
-CARGO_DIR="$(dirname "$(command -v cargo)")"
+# 배포판 cargo(/usr/bin, 1.75)는 Cargo.lock v4를 못 읽으므로 rustup의 cargo를 먼저 쓴다
+if [ -x "$HOME/.cargo/bin/cargo" ]; then CARGO_DIR="$HOME/.cargo/bin"; else CARGO_DIR="$(dirname "$(command -v cargo)")"; fi
 BIN="$HOME/.local/bin"
 [ -x "$BIN/tailscaled" ] || { echo "tailscaled가 없습니다 ($BIN). README의 '고정 주소'를 보세요."; exit 1; }
 

@@ -1,0 +1,13 @@
+# 인터넷 주소 (Cloudflare 무료 터널). 계정이 필요 없지만 켤 때마다 주소가 바뀐다.
+# 현재 주소 확인: journalctl --user -u goarcade-cloudflare | grep trycloudflare
+[Unit]
+Description=바둑 게임방 인터넷 주소 (Cloudflare 터널)
+After=network-online.target goarcade.service
+
+[Service]
+ExecStart=%h/.local/bin/cloudflared tunnel --no-autoupdate --url http://localhost:5000
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
